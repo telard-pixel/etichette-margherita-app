@@ -1,0 +1,190 @@
+import 'package:flutter/material.dart';
+
+import '../api.dart';
+import '../format.dart';
+import '../ui.dart';
+import 'print.dart';
+
+/// Come /etichetta: un lotto interno per un prodotto fatto in cucina, con la
+/// data di produzione scelta (oggi o uno dei giorni prima).
+class ManualLabelScreen extends StatefulWidget {
+  const ManualLabelScreen({super.key});
+  @override
+  State<ManualLabelScreen> createState() => _ManualLabelScreenState();
+}
+
+class _ManualLabelScreenState extends State<ManualLabelScreen> {
+  final _product = TextEditingController();
+  late DateTime _day = _today;
+  List<Map<String, dynamic>> _lots = [];
+  List<String> _suggested = [];
+  bool _busy = false;
+
+  static DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final body = await Api.instance.get('/lotti', {'giorno': isoDay(_day)});
+      if (!mounted) return;
+      setState(() {
+        _lots = (body['lotti'] as List).cast<Map<String, dynamic>>();
+        _suggested = (body['suggeriti'] as List).cast<String>();
+      });
+    } on ApiError {
+      // l'elenco del giorno e' solo un aiuto
+    }
+  }
+
+  void _setDay(DateTime day) {
+    setState(() => _day = day);
+    _load();
+  }
+
+  Future<void> _otherDay() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _day,
+      firstDate: _today.subtract(const Duration(days: 365)),
+      lastDate: _today,
+      helpText: 'Data di produzione',
+    );
+    if (picked != null) _setDay(picked);
+  }
+
+  Future<void> _create({required bool print}) async {
+    final product = _product.text.trim();
+    if (product.isEmpty) {
+      toast(context, 'Scrivi il prodotto', error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    final body = await attempt(context, () => Api.instance.post('/lotti', {'data': isoDay(_day), 'prodotto': product}));
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (body == null) return;
+    final lot = body['lotto_interno'] as Map<String, dynamic>;
+    _product.clear();
+    _load();
+    if (print) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PrintScreen(lot)));
+    } else {
+      toast(context, 'Creato il lotto ${lot['codice']}');
+    }
+  }
+
+  Widget _dayChip(DateTime d) {
+    final diff = _today.difference(d).inDays;
+    final title = diff == 0 ? 'Oggi' : (diff == 1 ? 'Ieri' : weekdays[d.weekday - 1]);
+    final selected = d == _day;
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton(
+        onPressed: () => _setDay(d),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 56),
+          padding: EdgeInsets.zero,
+          backgroundColor: selected ? C.navy : Colors.white,
+          foregroundColor: selected ? Colors.white : C.navy,
+          side: BorderSide(color: selected ? C.navy : C.border),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text('${d.day}/${d.month}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400)),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final days = [for (var i = 0; i < 7; i++) _today.subtract(Duration(days: i))];
+    final isOther = !days.contains(_day);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Etichetta a mano')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(padding: const EdgeInsets.all(16), children: [
+          const SectionLabel('Data di produzione'),
+          const SizedBox(height: 8),
+          GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.45,
+            children: [
+              for (final d in days) _dayChip(d),
+              OutlinedButton(
+                onPressed: _otherDay,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 56),
+                  padding: EdgeInsets.zero,
+                  backgroundColor: isOther ? C.navy : Colors.white,
+                  foregroundColor: isOther ? Colors.white : C.navy,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(isOther ? '${_day.day}/${_day.month}/${_day.year % 100}' : 'Altra…',
+                    style: const TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const SectionLabel('Prodotto'),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _product,
+            textCapitalization: TextCapitalization.sentences,
+            maxLength: 120,
+            decoration: const InputDecoration(hintText: 'Es. Ragù di carne', counterText: ''),
+          ),
+          if (_suggested.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final p in _suggested)
+                ActionChip(label: Text(p), onPressed: () => setState(() => _product.text = p)),
+            ]),
+          ],
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: _busy ? null : () => _create(print: true),
+            icon: const Icon(Icons.print),
+            label: const Text('Crea e stampa'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _create(print: false),
+            child: const Text('Crea solo il lotto'),
+          ),
+          const SizedBox(height: 22),
+          SectionLabel('Lotti del ${itDate(isoDay(_day))}'),
+          const SizedBox(height: 8),
+          if (_lots.isEmpty)
+            const Text('Nessun lotto in questo giorno', style: TextStyle(color: C.muted))
+          else
+            Card(
+              child: Column(children: [
+                for (final lot in _lots.reversed)
+                  ListTile(
+                    title: Text(lot['prodotto'] ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text('${lot['codice']} · ${lot['operatore'] ?? ''}', style: mono.copyWith(fontSize: 13, color: C.muted)),
+                    trailing: const Icon(Icons.print_outlined),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PrintScreen(lot))),
+                  ),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+}
