@@ -62,6 +62,9 @@ jobs:
             --out "EtichetteMargherita-$VERSION.apk" build/app/outputs/flutter-apk/app-release.apk
           "$APKSIGNER" verify --print-certs "EtichetteMargherita-$VERSION.apk" | head -3
           rm "$RUNNER_TEMP/release.p12"
+          AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          "$AAPT2" dump permissions "EtichetteMargherita-$VERSION.apk"
+          ls -l "EtichetteMargherita-$VERSION.apk"
 
       - uses: actions/upload-artifact@v4
         with:
