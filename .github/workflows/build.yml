@@ -48,7 +48,8 @@ jobs:
         run: flutter test
 
       - name: Compila
-        run: flutter build apk --release --build-name "$VERSION" --build-number "$BUILD"
+        # Solo telefoni veri (ARM 32 e 64 bit): niente x86_64 degli emulatori.
+        run: flutter build apk --release --target-platform android-arm,android-arm64 --build-name "$VERSION" --build-number "$BUILD"
 
       - name: Firma
         env:
