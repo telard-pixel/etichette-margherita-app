@@ -88,8 +88,8 @@ class _CorrectScreenState extends State<CorrectScreen> {
       );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text('Correggi #${widget.s['id']}')),
+  Widget build(BuildContext context) => HeaderScaffold(
+        header: NavyHeader(title: 'Correggi', subtitle: 'Scheda #${widget.s['id']} · ${widget.s['prodotto'] ?? ''}', back: true),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           _field('Prodotto', _product),
           _field('Lotto', _lot, isMono: true),

@@ -108,8 +108,8 @@ class _PrintScreenState extends State<PrintScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.lot['codice'] as String? ?? 'Etichetta')),
+  Widget build(BuildContext context) => HeaderScaffold(
+        header: NavyHeader(title: 'Etichetta', subtitle: '${widget.lot['codice'] ?? ''} · ${widget.lot['prodotto'] ?? ''}', back: true),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           Container(
             decoration: BoxDecoration(
@@ -134,7 +134,7 @@ class _PrintScreenState extends State<PrintScreen> {
           const Text('Anteprima come esce dalla stampante',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
           const SizedBox(height: 16),
-          Card(
+          Panel(padding: EdgeInsets.zero, 
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Row(children: [
@@ -175,7 +175,7 @@ class _PrintScreenState extends State<PrintScreen> {
             ),
           ]),
           const SizedBox(height: 20),
-          if (_waiting) _queueCard() else
+          if (_waiting) _queuePanel(padding: EdgeInsets.zero, ) else
             FilledButton.icon(
               onPressed: _png == null ? null : _print,
               icon: const Icon(Icons.print),
@@ -187,7 +187,7 @@ class _PrintScreenState extends State<PrintScreen> {
         ]),
       );
 
-  Widget _queueCard() {
+  Widget _queuePanel(padding: EdgeInsets.zero, ) {
     final job = _job!;
     final printing = job['stato'] == 'in_stampa';
     final seconds = job['parte_tra_secondi'] as int? ?? 0;

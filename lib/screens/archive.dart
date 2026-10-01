@@ -5,11 +5,10 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
-import 'expiring.dart';
 import 'home.dart';
 import 'item.dart';
 
-enum Filter { all, today, review, expiring }
+enum Filter { all, today, review, app }
 
 class ArchiveScreen extends StatefulWidget {
   const ArchiveScreen({super.key});
@@ -22,6 +21,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   Timer? _debounce, _poll;
   Filter _filter = Filter.all;
   List<Map<String, dynamic>> _items = [];
+  Map<String, dynamic>? _summary;
   String? _error;
   bool _loading = true;
 
@@ -50,7 +50,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       Filter.all => {},
       Filter.today => {'giorno': isoDay(DateTime.now())},
       Filter.review => {'da_rivedere': '1'},
-      Filter.expiring => {'scadenza_giorni': '7'},
+      Filter.app => {'dall_app': '1'},
     };
   }
 
@@ -63,9 +63,16 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         // "Riso 1/10": il nome contiene cifre, non e' un lotto.
         items = ((await Api.instance.get('/schede', {'cerca': text}))['schede'] as List).cast<Map<String, dynamic>>();
       }
+      Map<String, dynamic>? summary;
+      try {
+        summary = await Api.instance.get('/riepilogo');
+      } on ApiError {
+        summary = _summary;
+      }
       if (!mounted) return;
       setState(() {
         _items = items;
+        _summary = summary;
         _error = null;
         _loading = false;
       });
@@ -88,51 +95,61 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   }
 
   void _onSearch(String _) {
+    setState(() {});
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), _load);
   }
 
-  Widget _chip(String label, Filter f) => Padding(
-        padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: _filter == f && _search.text.isEmpty,
-          showCheckmark: false,
-          selectedColor: C.navy,
-          labelStyle: TextStyle(color: _filter == f && _search.text.isEmpty ? Colors.white : C.navy),
-          onSelected: (_) {
-            _search.clear();
-            setState(() {
-              _filter = f;
-              _loading = true;
-            });
-            _load();
-          },
-        ),
-      );
+  Widget _chip(String label, Filter f) {
+    final on = _filter == f && _search.text.isEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: on,
+        labelStyle: TextStyle(color: on ? Colors.white : C.navy, fontWeight: FontWeight.w500),
+        side: on ? BorderSide.none : const BorderSide(color: C.border),
+        onSelected: (_) {
+          _search.clear();
+          setState(() {
+            _filter = f;
+            _loading = true;
+          });
+          _load();
+        },
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Archivio'),
-          actions: [
-            IconButton(
-              tooltip: 'Scadenze',
-              icon: const Icon(Icons.schedule),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpiringScreen())),
-            ),
-          ],
-        ),
-        body: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+  Widget build(BuildContext context) {
+    final s = _summary;
+    return HeaderScaffold(
+      header: NavyHeader(
+        title: 'Archivio',
+        subtitle: s == null ? 'Etichette cucina' : 'Etichette cucina · ${s['totale']} schede',
+        bottom: s == null
+            ? null
+            : StatStrip([
+                ('${s['foto_oggi']}', 'foto oggi', Colors.white),
+                ('${s['da_rivedere']}', 'da rivedere', C.statWarn),
+                ('${(s['scadute'] ?? 0) + (s['entro_3'] ?? 0)}', 'in scadenza', C.statBad),
+              ]),
+      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: panelShadow),
             child: TextField(
               controller: _search,
               onChanged: _onSearch,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Cerca prodotto o lotto',
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(Icons.search, color: C.muted),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                 suffixIcon: _search.text.isEmpty
                     ? null
                     : IconButton(
@@ -140,28 +157,31 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                         icon: const Icon(Icons.close),
                         onPressed: () {
                           _search.clear();
-                          _load();
                           setState(() {});
+                          _load();
                         }),
               ),
             ),
           ),
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                _chip('Tutte', Filter.all),
-                _chip('Oggi', Filter.today),
-                _chip('Da rivedere', Filter.review),
-                _chip('In scadenza', Filter.expiring),
-              ],
-            ),
+        ),
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              _chip('Tutte', Filter.all),
+              _chip('Oggi', Filter.today),
+              _chip('Da rivedere', Filter.review),
+              _chip('Dall\'app', Filter.app),
+            ],
           ),
-          Expanded(child: _body()),
-        ]),
-      );
+        ),
+        const SizedBox(height: 4),
+        Expanded(child: _body()),
+      ]),
+    );
+  }
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -188,6 +208,13 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   }
 }
 
+String shortName(String? name) {
+  final words = (name ?? '').trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return '';
+  if (words.length == 1) return words.first;
+  return '${words.first} ${words[1][0].toUpperCase()}.';
+}
+
 class ItemTile extends StatelessWidget {
   const ItemTile(this.s, {super.key, this.onChanged});
   final Map<String, dynamic> s;
@@ -196,54 +223,54 @@ class ItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reading = s['in_lavorazione'] == true;
-    final who = s['dall_app'] == true ? '${s['inviata_da']} · dall\'app' : '${s['inviata_da'] ?? ''}';
-    return Card(
-      color: reading ? const Color(0xFFF6F9FF) : null,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async {
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => ItemScreen(s['id'] as int)));
-          onChanged?.call();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: SizedBox(width: 64, height: 64, child: ItemPhoto(s['id'] as int, mini: true)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Expanded(
-                    child: Text(reading ? 'Foto in lettura' : (s['prodotto'] ?? 'Prodotto non letto'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
-                  Pill.status(s),
-                ]),
-                const SizedBox(height: 5),
-                if (!reading)
-                  Text.rich(
-                    TextSpan(style: const TextStyle(fontSize: 13, color: C.muted), children: [
-                      const TextSpan(text: 'Lotto '),
-                      TextSpan(text: s['lotto'] ?? '—', style: mono.copyWith(color: C.navy)),
-                      TextSpan(text: ' · Scad. ${itDate(s['scadenza'])}'),
-                    ]),
+    final who = s['dall_app'] == true ? '${shortName(s['inviata_da'])} · dall\'app' : shortName(s['inviata_da']);
+    final internal = s['lotto_interno_codice'] as String?;
+    return Panel(
+      padding: const EdgeInsets.all(12),
+      color: reading ? const Color(0xFFF5F8FF) : null,
+      onTap: () async {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => ItemScreen(s['id'] as int)));
+        onChanged?.call();
+      },
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(width: 72, height: 72, child: ItemPhoto(s['id'] as int, mini: true)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                child: Text(reading ? 'Foto in lettura' : (s['prodotto'] ?? 'Prodotto non letto'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                const SizedBox(height: 3),
-                Text('#${s['id']} · ${whenArrived(s['arrivata_alle'])} · $who',
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.muted)),
+                    style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: 8),
+              Pill.status(s),
+            ]),
+            const SizedBox(height: 7),
+            if (!reading)
+              Row(children: [
+                LotTag(s['lotto'] ?? '—'),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text('Scad. ${itDate(s['scadenza'])}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: C.muted)),
+                ),
               ]),
-            ),
+            const SizedBox(height: 7),
+            Row(children: [
+              Expanded(
+                child: Text('${whenArrived(s['arrivata_alle'])} · $who',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.muted)),
+              ),
+              if (internal != null) Text(internal, style: mono.copyWith(fontSize: 12, color: C.infoFg)),
+            ]),
           ]),
         ),
-      ),
+      ]),
     );
   }
 }

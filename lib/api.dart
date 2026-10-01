@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -63,12 +64,24 @@ class Api {
   }
 
   Future<void> login(String name, String pin) async {
-    final body = await post('/login', {'nome': name, 'pin': pin, 'dispositivo': Platform.operatingSystemVersion});
+    final body = await post('/login', {'nome': name, 'pin': pin, 'dispositivo': await _deviceName()});
     token = body['token'] as String;
     userName = body['utente']['nome'] as String;
     isAdmin = body['utente']['admin'] == true;
     await _storage.write(key: 'token', value: token);
     await _saveUser();
+  }
+
+  /// "Samsung SM-A546B · Android 14": cosi' l'amministratore riconosce i
+  /// telefoni collegati nella schermata Utenti.
+  static Future<String> _deviceName() async {
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      final brand = info.manufacturer.isEmpty ? '' : '${info.manufacturer[0].toUpperCase()}${info.manufacturer.substring(1)} ';
+      return '$brand${info.model} · Android ${info.version.release}';
+    } catch (_) {
+      return 'Android';
+    }
   }
 
   Future<void> _saveUser() async {

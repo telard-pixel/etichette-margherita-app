@@ -89,8 +89,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Nuova etichetta')),
+  Widget build(BuildContext context) => HeaderScaffold(
+        header: NavyHeader(title: 'Nuova foto', subtitle: 'Una o più foto dello stesso prodotto'),
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [

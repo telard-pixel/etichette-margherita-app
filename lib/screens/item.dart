@@ -94,81 +94,98 @@ class _ItemScreenState extends State<ItemScreen> {
 
   Widget _kv(String k, String v, {bool isMono = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         SectionLabel(k),
-        const SizedBox(height: 3),
-        SelectableText(v, style: isMono ? mono.copyWith(fontSize: 16) : const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 5),
+        isMono
+            ? LotTag(v, size: 15)
+            : SelectableText(v, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500)),
       ]);
+
+  Widget _menu() => PopupMenuButton<String>(
+        tooltip: 'Altre azioni',
+        style: IconButton.styleFrom(backgroundColor: const Color(0x8C0F1B2D)),
+        icon: const Icon(Icons.more_horiz, color: Colors.white),
+        onSelected: (v) {
+          if (v == 'foto') _addPhoto();
+          if (v == 'riesamina') _reexamine();
+          if (v == 'elimina') _delete();
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'foto', child: Text('Aggiungi una foto')),
+          if (Api.instance.isAdmin) const PopupMenuItem(value: 'riesamina', child: Text('Fai rileggere a Qwen')),
+          if (Api.instance.isAdmin) const PopupMenuItem(value: 'elimina', child: Text('Elimina scheda')),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
     final s = _s;
+    final top = MediaQuery.of(context).padding.top;
+    if (s == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Scheda #${widget.itemId}')),
+        body: _error != null ? ErrorRetry(_error!, _load) : const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Scheda #${widget.itemId}'),
-        actions: [
-          PopupMenuButton<String>(
-            tooltip: 'Altre azioni',
-            onSelected: (v) {
-              if (v == 'foto') _addPhoto();
-              if (v == 'riesamina') _reexamine();
-              if (v == 'elimina') _delete();
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'foto', child: Text('Aggiungi una foto')),
-              if (Api.instance.isAdmin) const PopupMenuItem(value: 'riesamina', child: Text('Fai rileggere a Qwen')),
-              if (Api.instance.isAdmin) const PopupMenuItem(value: 'elimina', child: Text('Elimina scheda')),
-            ],
-          ),
-        ],
-      ),
-      body: s == null
-          ? (_error != null ? ErrorRetry(_error!, _load) : const Center(child: CircularProgressIndicator()))
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(padding: const EdgeInsets.all(16), children: [
-                GestureDetector(
-                  onTap: _openPhoto,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      height: 190,
-                      child: Stack(fit: StackFit.expand, children: [
-                        ItemPhoto(widget.itemId),
-                        if ((s['foto_aggiuntive'] ?? 0) > 0)
-                          Positioned(
-                            right: 10,
-                            bottom: 10,
-                            child: Pill('+${s['foto_aggiuntive']} foto', bg: C.infoBg, fg: C.infoFg),
-                          ),
-                      ]),
-                    ),
-                  ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(padding: EdgeInsets.zero, children: [
+          SizedBox(
+            height: 270 + top,
+            child: Stack(fit: StackFit.expand, children: [
+              GestureDetector(onTap: _openPhoto, child: ItemPhoto(widget.itemId)),
+              Positioned(
+                top: top + 12,
+                left: 16,
+                child: HeaderButton(
+                  icon: Icons.arrow_back,
+                  tooltip: 'Indietro',
+                  color: const Color(0x8C0F1B2D),
+                  onPressed: () => Navigator.maybePop(context),
                 ),
-                const SizedBox(height: 6),
-                Text('${whenArrived(s['arrivata_alle'])} · ${s['inviata_da'] ?? ''}${s['dall_app'] == true ? ' · dall\'app' : ''}',
-                    style: const TextStyle(fontSize: 12, color: C.muted)),
-                const SizedBox(height: 10),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Expanded(
-                          child: Text(s['prodotto'] ?? 'Prodotto non letto',
-                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              ),
+              Positioned(top: top + 12, right: 16, child: _menu()),
+              if ((s['foto_aggiuntive'] ?? 0) > 0)
+                Positioned(
+                  right: 16,
+                  bottom: 34,
+                  child: Pill('+${s['foto_aggiuntive']} foto', bg: const Color(0x990F1B2D), fg: Colors.white),
+                ),
+            ]),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -22),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Panel(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(
+                          '#${s['id']} · ${whenArrived(s['arrivata_alle'])} · ${s['inviata_da'] ?? ''}${s['dall_app'] == true ? ' · app' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: C.muted),
                         ),
-                        Pill.status(s),
-                      ]),
-                      const SizedBox(height: 14),
-                      Row(children: [
-                        Expanded(child: _kv('Lotto', s['lotto'] ?? '—', isMono: true)),
-                        Expanded(child: _kv('Scadenza', itDate(s['scadenza']))),
-                      ]),
-                      const SizedBox(height: 14),
-                      _kv('Produttore', s['produttore'] ?? '—'),
-                      const SizedBox(height: 14),
-                      _kv('Allergeni', _allergens(s)),
+                      ),
+                      const SizedBox(width: 8),
+                      Pill.status(s),
                     ]),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(s['prodotto'] ?? 'Prodotto non letto',
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -.2)),
+                    const SizedBox(height: 14),
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: _kv('Lotto', s['lotto'] ?? '—', isMono: true)),
+                      Expanded(child: _kv('Scadenza', itDate(s['scadenza']))),
+                    ]),
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: divider),
+                    _kv('Produttore', s['produttore'] ?? '—'),
+                    const SizedBox(height: 14),
+                    _kv('Allergeni', _allergens(s)),
+                  ]),
                 ),
                 const SizedBox(height: 12),
                 if (s['lotto_interno'] != null) _InternalLotCard(s['lotto_interno'] as Map<String, dynamic>),
@@ -206,6 +223,9 @@ class _ItemScreenState extends State<ItemScreen> {
                 ]),
               ]),
             ),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -226,22 +246,25 @@ class _InternalLotCard extends StatelessWidget {
   const _InternalLotCard(this.lot);
   final Map<String, dynamic> lot;
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: C.navy, borderRadius: BorderRadius.circular(14)),
+  Widget build(BuildContext context) => Panel(
+        color: C.navy,
         child: Row(children: [
-          const Icon(Icons.sell_outlined, color: C.softBlue, size: 26),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: C.softBlue.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.sell_outlined, color: C.softBlue, size: 22),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('LOTTO INTERNO',
-                  style: TextStyle(fontSize: 12, letterSpacing: .7, color: Color(0xFFB8C3D4), fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 11, letterSpacing: .9, color: C.onNavyMuted, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(lot['codice'] as String, style: mono.copyWith(fontSize: 20, color: Colors.white)),
             ]),
           ),
-          Text('Prod. ${itDate(lot['data_produzione'])}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFFB8C3D4))),
+          Text('Prod. ${itDate(lot['data_produzione'])}', style: const TextStyle(fontSize: 12, color: C.onNavyMuted)),
         ]),
       );
 }

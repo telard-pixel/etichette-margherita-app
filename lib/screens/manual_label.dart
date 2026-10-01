@@ -109,8 +109,8 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
   Widget build(BuildContext context) {
     final days = [for (var i = 0; i < 7; i++) _today.subtract(Duration(days: i))];
     final isOther = !days.contains(_day);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Etichetta a mano')),
+    return HeaderScaffold(
+      header: NavyHeader(title: 'Etichette', subtitle: 'Lotto interno per un prodotto fatto in cucina'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.all(16), children: [
@@ -172,7 +172,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
           if (_lots.isEmpty)
             const Text('Nessun lotto in questo giorno', style: TextStyle(color: C.muted))
           else
-            Card(
+            Panel(padding: EdgeInsets.zero, 
               child: Column(children: [
                 for (final lot in _lots.reversed)
                   ListTile(

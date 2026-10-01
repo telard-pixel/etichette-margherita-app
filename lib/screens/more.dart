@@ -8,6 +8,7 @@ import '../api.dart';
 import '../ui.dart';
 import '../updater.dart';
 import 'login.dart';
+import 'users.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -46,136 +47,75 @@ class _MoreScreenState extends State<MoreScreen> {
   }
 
   Future<void> _logout() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Uscire da questo telefono?'),
+        content: const Text('Per rientrare serviranno nome e PIN.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Esci')),
+        ],
+      ),
+    );
+    if (sure != true) return;
     await Api.instance.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
   }
 
   Widget _machine(String name, bool? up, String detail) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(children: [
-          Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: up == null ? C.muted : (up ? C.green : C.red)),
-          ),
+          Dot(up == null ? C.faint : (up ? C.green : C.red)),
           const SizedBox(width: 10),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 15))),
-          Text(detail, style: const TextStyle(color: C.muted, fontSize: 13)),
+          Expanded(child: Text(name, style: const TextStyle(fontSize: 14.5))),
+          Text(detail, style: const TextStyle(color: C.muted, fontSize: 12)),
         ]),
       );
 
-  Widget _healthCard() {
+  Widget _healthPanel() {
     final h = _health!;
     final status = (h['stato'] as Map?)?.cast<String, dynamic>() ?? {};
     final checks = (status['checks'] as Map?)?.cast<String, dynamic>() ?? {};
     final counts = (status['counts'] as Map?)?.cast<String, dynamic>() ?? {};
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SectionLabel('Stato'),
-          const SizedBox(height: 6),
-          for (final m in (h['macchine'] as List).cast<Map<String, dynamic>>())
-            _machine(m['nome'] as String, m['attiva'] as bool?, m['attiva'] == true ? 'attiva' : 'non risponde'),
-          _machine('Stampante', h['stampante_collegata'] == true, h['stampante_collegata'] == true ? 'collegata' : 'non collegata'),
-          if (checks.isNotEmpty) _machine('Backup', checks['backup_fresh'] as bool?, checks['backup_fresh'] == true ? 'recente' : 'vecchio'),
-          if (counts.isNotEmpty)
-            _machine('Archivio', (counts['failed'] ?? 0) == 0, '${counts['archived'] ?? 0} schede · ${counts['failed'] ?? 0} fallite'),
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SectionLabel('Stato'),
+        const SizedBox(height: 4),
+        for (final m in (h['macchine'] as List).cast<Map<String, dynamic>>())
+          _machine(m['nome'] as String, m['attiva'] as bool?, m['attiva'] == true ? 'attivo' : 'non risponde'),
+        _machine('Stampante cucina', h['stampante_collegata'] == true, h['stampante_collegata'] == true ? 'collegata' : 'non collegata'),
+        if (checks.isNotEmpty) _machine('Backup', checks['backup_fresh'] as bool?, checks['backup_fresh'] == true ? 'recente' : 'vecchio'),
+        if (counts.isNotEmpty)
+          _machine('Archivio', (counts['failed'] ?? 0) == 0, '${counts['archived'] ?? 0} schede · ${counts['failed'] ?? 0} fallite'),
+      ]),
+    );
+  }
+
+  Future<void> _chooseExport() async {
+    final ext = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text('Esporta archivio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          ),
+          MenuRow(icon: Icons.picture_as_pdf_outlined, title: 'PDF', subtitle: 'Con foto e lotto interno, da stampare',
+              onTap: () => Navigator.pop(context, '.pdf')),
+          MenuRow(icon: Icons.table_chart_outlined, title: 'Excel', subtitle: 'Un foglio per mese, con foto',
+              onTap: () => Navigator.pop(context, '.xlsx')),
+          MenuRow(icon: Icons.description_outlined, title: 'CSV', subtitle: 'Tutte le colonne, senza foto',
+              onTap: () => Navigator.pop(context, '.csv')),
+          const SizedBox(height: 8),
         ]),
       ),
     );
+    if (ext != null && mounted) await _export(ext);
   }
-
-  Future<void> _userDialog([Map<String, dynamic>? user]) async {
-    final name = TextEditingController(text: user?['nome'] ?? '');
-    final pin = TextEditingController();
-    var admin = user?['admin'] == true;
-    var active = user?['attivo'] ?? true;
-    final isMe = user != null && user['nome'] == Api.instance.userName;
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: Text(user == null ? 'Nuovo utente' : user['nome'] as String),
-          content: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(
-                controller: name,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Nome e cognome'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: pin,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                maxLength: 12,
-                decoration: InputDecoration(labelText: user == null ? 'PIN (almeno 4 cifre)' : 'Nuovo PIN (vuoto = invariato)'),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Amministratore'),
-                value: admin,
-                onChanged: isMe ? null : (v) => setDialog(() => admin = v),
-              ),
-              if (user != null)
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Attivo'),
-                  value: active,
-                  onChanged: isMe ? null : (v) => setDialog(() => active = v),
-                ),
-            ]),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Salva')),
-          ],
-        ),
-      ),
-    );
-    if (saved != true || !mounted) return;
-    final body = user == null
-        ? {'nome': name.text.trim(), 'pin': pin.text.trim(), 'admin': admin}
-        : {
-            if (name.text.trim() != user['nome']) 'nome': name.text.trim(),
-            if (pin.text.trim().isNotEmpty) 'pin': pin.text.trim(),
-            'admin': admin,
-            'attivo': active,
-          };
-    final result = await attempt(
-      context,
-      () => user == null ? Api.instance.post('/admin/utenti', body) : Api.instance.patch('/admin/utenti/${user['id']}', body),
-    );
-    if (result != null && mounted) {
-      toast(context, user == null ? 'Utente creato: dagli nome e PIN' : 'Utente aggiornato');
-      _load();
-    }
-  }
-
-  Widget _usersCard() => Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 6, 6),
-          child: Column(children: [
-            Row(children: [
-              const Expanded(child: SectionLabel('Utenti app')),
-              TextButton.icon(onPressed: () => _userDialog(), icon: const Icon(Icons.add), label: const Text('Nuovo')),
-            ]),
-            for (final u in _users)
-              ListTile(
-                contentPadding: const EdgeInsets.only(right: 4),
-                leading: Icon(Icons.person_outline, color: u['attivo'] == true ? C.navy : C.muted),
-                title: Text(u['nome'] as String,
-                    style: TextStyle(color: u['attivo'] == true ? C.navy : C.muted,
-                        decoration: u['attivo'] == true ? null : TextDecoration.lineThrough)),
-                subtitle: u['admin'] == true ? const Text('amministratore') : null,
-                trailing: const Icon(Icons.edit_outlined),
-                onTap: () => _userDialog(u),
-              ),
-          ]),
-        ),
-      );
 
   Future<void> _export(String extension) async {
     final status = ValueNotifier<String>('Preparo l\'esportazione…');
@@ -228,72 +168,73 @@ class _MoreScreenState extends State<MoreScreen> {
   Widget build(BuildContext context) {
     final api = Api.instance;
     final update = _update;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Altro')),
+    final online = _users.where((u) => (u['telefoni'] as List?)?.isNotEmpty == true).length;
+    return HeaderScaffold(
+      header: const NavyHeader(title: 'Altro'),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.all(16), children: [
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.account_circle_outlined, size: 32),
-              title: Text(api.userName, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(api.isAdmin ? 'amministratore' : 'utente'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (api.isAdmin && _health != null) ...[_healthCard(), const SizedBox(height: 12)],
-          if (api.isAdmin) ...[_usersCard(), const SizedBox(height: 12)],
-          if (api.isAdmin) ...[
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
+          Panel(
+            child: Row(children: [
+              Initials(api.userName),
+              const SizedBox(width: 12),
+              Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const SectionLabel('Esporta archivio'),
-                  const SizedBox(height: 10),
+                  Text(api.userName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   Row(children: [
-                    for (final (label, ext) in const [('CSV', '.csv'), ('Excel', '.xlsx'), ('PDF', '.pdf')])
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 46), padding: EdgeInsets.zero),
-                            onPressed: () => _export(ext),
-                            icon: const Icon(Icons.download, size: 18),
-                            label: Text(label, style: const TextStyle(fontSize: 14)),
-                          ),
-                        ),
-                      ),
+                    Icon(api.isAdmin ? Icons.shield_outlined : Icons.person_outline, size: 14, color: C.muted),
+                    const SizedBox(width: 4),
+                    Text(api.isAdmin ? 'amministratore' : 'utente', style: const TextStyle(fontSize: 12.5, color: C.muted)),
                   ]),
                 ]),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          Card(
-            color: update?.available == true ? const Color(0xFFF6F9FF) : null,
-            child: ListTile(
-              title: Text(update?.available == true ? 'Aggiornamento disponibile' : 'App aggiornata',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(update == null
-                  ? 'Controllo…'
-                  : update.available
-                      ? 'Versione ${update.latestName} · installata ${update.installedName}'
-                      : 'Versione ${update.installedName}'),
-              trailing: update?.available == true
-                  ? FilledButton(
-                      style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                      onPressed: () => Updater.install(context),
-                      child: const Text('Installa'),
-                    )
-                  : null,
-            ),
+            ]),
           ),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(foregroundColor: C.badFg, side: const BorderSide(color: Color(0xFFE7B9B4))),
-            onPressed: _logout,
-            child: const Text('Esci'),
+          const SizedBox(height: 12),
+          if (api.isAdmin && _health != null) ...[_healthPanel(), const SizedBox(height: 12)],
+          Panel(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              if (api.isAdmin) ...[
+                MenuRow(
+                  icon: Icons.group_outlined,
+                  title: 'Utenti',
+                  subtitle: _users.isEmpty ? 'Accessi, telefoni e PIN' : '${_users.length} utenti · $online collegati',
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen()));
+                    _load();
+                  },
+                ),
+                divider,
+                MenuRow(
+                  icon: Icons.download_outlined,
+                  title: 'Esporta archivio',
+                  subtitle: 'PDF, Excel o CSV con foto e lotto interno',
+                  onTap: _chooseExport,
+                ),
+                divider,
+              ],
+              MenuRow(
+                icon: Icons.system_update_outlined,
+                title: update?.available == true ? 'Aggiornamento disponibile' : 'Aggiornamento',
+                subtitle: update == null
+                    ? 'Controllo…'
+                    : update.available
+                        ? 'Versione ${update.latestName} · installata ${update.installedName}'
+                        : 'Versione ${update.installedName} · aggiornata',
+                trailing: update?.available == true
+                    ? FilledButton(
+                        style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 16)),
+                        onPressed: () => Updater.install(context),
+                        child: const Text('Installa'),
+                      )
+                    : null,
+                onTap: update?.available == true ? () => Updater.install(context) : _load,
+              ),
+            ]),
           ),
+          const SizedBox(height: 12),
+          Panel(padding: EdgeInsets.zero, child: MenuRow(icon: Icons.logout, title: 'Esci', danger: true, onTap: _logout)),
         ]),
       ),
     );

@@ -83,15 +83,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text('Foto inviata · #${widget.itemId}')),
+  Widget build(BuildContext context) => HeaderScaffold(
+        header: NavyHeader(title: 'Foto inviata', subtitle: 'Scheda #${widget.itemId}', back: true),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(height: 220, child: ItemPhoto(widget.itemId)),
           ),
           const SizedBox(height: 16),
-          Card(
+          Panel(padding: EdgeInsets.zero, 
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(children: [
@@ -104,7 +104,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
+          Panel(padding: EdgeInsets.zero, 
             color: const Color(0xFFF6F9FF),
             child: const Padding(
               padding: EdgeInsets.all(14),

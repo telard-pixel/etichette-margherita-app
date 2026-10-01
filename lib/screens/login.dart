@@ -83,21 +83,28 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: EdgeInsets.zero,
           children: [
             Container(
-              color: C.navy,
-              padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 40, 24, 30),
+              decoration: const BoxDecoration(
+                color: C.navy,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+              ),
+              padding: EdgeInsets.fromLTRB(28, MediaQuery.of(context).padding.top + 48, 28, 36),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(color: C.blue, borderRadius: BorderRadius.circular(16)),
-                  child: const Icon(Icons.sell_outlined, color: Colors.white, size: 30),
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: C.blue,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: const [BoxShadow(color: Color(0x661F5FD1), blurRadius: 20, offset: Offset(0, 8))],
+                  ),
+                  child: const Icon(Icons.sell_outlined, color: Colors.white, size: 32),
                 ),
                 const SizedBox(height: 14),
                 const Text('Etichette Margherita',
-                    style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -.3)),
                 const SizedBox(height: 6),
                 const Text('Archivio etichette, lotti interni e stampa',
-                    style: TextStyle(color: Color(0xFFB8C3D4), fontSize: 14)),
+                    style: TextStyle(color: C.onNavyMuted, fontSize: 14)),
               ]),
             ),
             Padding(
