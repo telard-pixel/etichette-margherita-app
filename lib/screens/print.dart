@@ -175,7 +175,7 @@ class _PrintScreenState extends State<PrintScreen> {
             ),
           ]),
           const SizedBox(height: 20),
-          if (_waiting) _queuePanel(padding: EdgeInsets.zero, ) else
+          if (_waiting) _queueCard() else
             FilledButton.icon(
               onPressed: _png == null ? null : _print,
               icon: const Icon(Icons.print),
@@ -187,7 +187,7 @@ class _PrintScreenState extends State<PrintScreen> {
         ]),
       );
 
-  Widget _queuePanel(padding: EdgeInsets.zero, ) {
+  Widget _queueCard() {
     final job = _job!;
     final printing = job['stato'] == 'in_stampa';
     final seconds = job['parte_tra_secondi'] as int? ?? 0;
