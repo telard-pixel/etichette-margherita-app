@@ -139,8 +139,8 @@ class Api {
   Future<Map<String, dynamic>> delete(String path) => _guard(
       () async => _decode(await _client.delete(uri(path), headers: authHeaders).timeout(_timeout)));
 
-  /// Una foto al server: nuova scheda (path "/foto") o foto in piu' di una
-  /// scheda ("/schede/<id>/foto").
+  /// Una foto al server: nuova scheda (`/foto`) o foto in piu' di una
+  /// scheda (`/schede/ID/foto`).
   Future<Map<String, dynamic>> uploadPhoto(String path, File photo, {String caption = ''}) =>
       _guard(() async {
         final request = http.MultipartRequest('POST', uri(path))

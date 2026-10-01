@@ -44,6 +44,9 @@ jobs:
       - name: Controllo del codice
         run: flutter analyze --no-fatal-infos
 
+      - name: Test
+        run: flutter test
+
       - name: Compila
         run: flutter build apk --release --build-name "$VERSION" --build-number "$BUILD"
 
