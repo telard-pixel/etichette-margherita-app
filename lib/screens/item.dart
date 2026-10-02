@@ -40,11 +40,15 @@ class _ItemScreenState extends State<ItemScreen> {
   @override
   void initState() {
     super.initState();
+    // Corretta altrove (su Telegram con /correggi, o da un altro telefono):
+    // la scheda aperta si aggiorna da sola.
+    archiveChanged.addListener(_load);
     _load();
   }
 
   @override
   void dispose() {
+    archiveChanged.removeListener(_load);
     _poll?.cancel();
     super.dispose();
   }

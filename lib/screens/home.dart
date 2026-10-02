@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../api.dart';
 
 import '../ui.dart';
 import '../updater.dart';
@@ -23,6 +27,28 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   late final AppLifecycleListener _lifecycle;
+  Timer? _watch;
+  String? _lastMarker;
+
+  /// Ogni 15 secondi, con l'app in primo piano, si chiede al server se
+  /// l'archivio e' cambiato (scheda nuova, correzione fatta su Telegram con
+  /// /correggi, lotto, scadenza...): solo allora schede ed elenchi si
+  /// ricaricano. Una domanda da pochi byte.
+  Future<void> _checkChanges() async {
+    try {
+      final marker = (await Api.instance.get('/modifiche'))['impronta'] as String?;
+      if (marker != null && _lastMarker != null && marker != _lastMarker) archiveChanged.value++;
+      _lastMarker = marker;
+    } catch (_) {
+      // senza rete si riprova al giro dopo
+    }
+  }
+
+  void _startWatching() {
+    _watch?.cancel();
+    _watch = Timer.periodic(const Duration(seconds: 15), (_) => _checkChanges());
+    _checkChanges();
+  }
 
   @override
   void initState() {
@@ -30,14 +56,21 @@ class _HomeScreenState extends State<HomeScreen> {
     // Un'occhiata agli aggiornamenti a ogni avvio e quando l'app torna in
     // primo piano: in cucina resta aperta per giorni senza mai ripartire.
     WidgetsBinding.instance.addPostFrameCallback((_) => Updater.offerIfNew(context));
-    _lifecycle = AppLifecycleListener(onResume: () {
-      archiveChanged.value++;
-      if (mounted) Updater.offerIfNew(context, onResume: true);
-    });
+    _lifecycle = AppLifecycleListener(
+      onResume: () {
+        archiveChanged.value++;
+        _startWatching();
+        if (mounted) Updater.offerIfNew(context, onResume: true);
+      },
+      // In secondo piano niente domande: si riparte al ritorno.
+      onHide: () => _watch?.cancel(),
+    );
+    _startWatching();
   }
 
   @override
   void dispose() {
+    _watch?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }
