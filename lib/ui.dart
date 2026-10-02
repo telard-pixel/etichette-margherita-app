@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import 'api.dart';
@@ -316,7 +318,34 @@ class MenuRow extends StatelessWidget {
 
 const divider = Divider(height: 1, thickness: 1, color: C.line);
 
-/// Foto di una scheda dal server (con l'accesso dell'utente).
+/// Foto gia' scaricate, per non riscaricarle a ogni scorrimento dell'elenco.
+/// Al massimo 120 (le miniature pesano pochi KB, le foto intere di piu').
+final Map<String, Uint8List> _photoCache = {};
+final Map<String, Future<Uint8List>> _photoLoading = {};
+
+Future<Uint8List> _loadPhoto(int itemId, bool mini) {
+  final key = '$itemId:${mini ? 'm' : 'f'}';
+  final cached = _photoCache[key];
+  if (cached != null) return Future.value(cached);
+  return _photoLoading[key] ??= Api.instance
+      .bytes('/schede/$itemId/foto', mini ? {'mini': '1'} : null)
+      .then((data) {
+    final bytes = Uint8List.fromList(data);
+    if (_photoCache.length >= 120) _photoCache.remove(_photoCache.keys.first);
+    _photoCache[key] = bytes;
+    return bytes;
+  }).whenComplete(() => _photoLoading.remove(key));
+}
+
+/// Dimentica le foto di una scheda (foto aggiunta, scheda riletta).
+void forgetItemPhoto(int itemId) {
+  _photoCache.remove('$itemId:m');
+  _photoCache.remove('$itemId:f');
+}
+
+/// Foto di una scheda dal server (con l'accesso dell'utente). Scaricata
+/// dall'app e mostrata dalla memoria: cosi' vale anche nel browser, dove
+/// un'immagine con l'intestazione di accesso non sempre si carica.
 class ItemPhoto extends StatelessWidget {
   const ItemPhoto(this.itemId, {super.key, this.mini = false, this.fit = BoxFit.cover, this.cacheWidth});
   final int itemId;
@@ -326,13 +355,20 @@ class ItemPhoto extends StatelessWidget {
   /// 270 sono ~17 MB di memoria per niente sui telefoni economici.
   final int? cacheWidth;
   @override
-  Widget build(BuildContext context) => Image.network(
-        Api.instance.uri('/schede/$itemId/foto', mini ? {'mini': '1'} : null).toString(),
-        headers: Api.instance.authHeaders,
-        fit: fit,
-        cacheWidth: cacheWidth,
-        errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Icons.image_not_supported_outlined),
-        loadingBuilder: (context, child, progress) => progress == null ? child : const PhotoPlaceholder(),
+  Widget build(BuildContext context) => FutureBuilder<Uint8List>(
+        future: _loadPhoto(itemId, mini),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) return const PhotoPlaceholder(icon: Icons.image_not_supported_outlined);
+          final data = snapshot.data;
+          if (data == null) return const PhotoPlaceholder();
+          return Image.memory(
+            data,
+            fit: fit,
+            cacheWidth: cacheWidth,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Icons.image_not_supported_outlined),
+          );
+        },
       );
 }
 

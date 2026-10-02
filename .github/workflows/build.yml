@@ -37,7 +37,9 @@ jobs:
       - name: File Android mancanti
         # Il progetto tiene solo i file Android personalizzati (manifest):
         # il resto lo genera flutter create, che non tocca i file esistenti.
-        run: flutter create --org it.margherita --project-name etichette_margherita --platforms android .
+        run: |
+          flutter create --org it.margherita --project-name etichette_margherita --platforms android,web .
+          python3 tool/web_tweak.py
 
       - run: flutter pub get
 
@@ -50,6 +52,13 @@ jobs:
       - name: Compila
         # Solo telefoni veri (ARM 32 e 64 bit): niente x86_64 degli emulatori.
         run: flutter build apk --release --target-platform android-arm,android-arm64 --build-name "$VERSION" --build-number "$BUILD"
+
+      # La stessa app per il browser: servita dal server su /app/.
+      - name: Compila web
+        run: |
+          flutter build web --release --base-href /app/ --no-web-resources-cdn --build-name "$VERSION" --build-number "$BUILD"
+          tar -czf "EtichetteMargherita-web-$VERSION.tgz" -C build/web .
+          ls -l "EtichetteMargherita-web-$VERSION.tgz"
 
       - name: Firma
         env:
@@ -70,7 +79,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: EtichetteMargherita-${{ env.VERSION }}
-          path: EtichetteMargherita-*.apk
+          path: |
+            EtichetteMargherita-*.apk
+            EtichetteMargherita-web-*.tgz
 
       # Prima sul server (e' da li' che l'app si aggiorna), poi la release:
       # se il caricamento fallisce, "Re-run" lo rifa' senza inciampare in una
@@ -85,6 +96,11 @@ jobs:
             -F "build=$BUILD" -F "versione=$VERSION" \
             -F "apk=@EtichetteMargherita-$VERSION.apk" \
             https://etichette-margherita.duckdns.org/app/api/v1/admin/apk
+          curl --fail-with-body -sS --retry 3 --retry-all-errors -X POST \
+            -H "X-Upload-Token: $UPLOAD_TOKEN" \
+            -F "build=$BUILD" -F "versione=$VERSION" \
+            -F "archivio=@EtichetteMargherita-web-$VERSION.tgz" \
+            https://etichette-margherita.duckdns.org/app/api/v1/admin/web
 
       - name: Pubblica release
         if: github.ref == 'refs/heads/main'

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -73,8 +72,11 @@ class _ItemScreenState extends State<ItemScreen> {
   Future<void> _addPhoto() async {
     final file = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
     if (file == null || !mounted) return;
-    final ok = await attempt(context, () => Api.instance.uploadPhoto('/schede/${widget.itemId}/foto', File(file.path)));
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    final ok = await attempt(context, () => Api.instance.uploadPhoto('/schede/${widget.itemId}/foto', bytes));
     if (ok != null && mounted) {
+      forgetItemPhoto(widget.itemId);
       toast(context, 'Foto aggiunta: la scheda viene riletta');
       archiveChanged.value++;
       _load();

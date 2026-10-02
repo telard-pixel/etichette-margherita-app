@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../api.dart';
+import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import '../updater.dart';
 import 'login.dart';
@@ -29,8 +26,10 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _load() async {
     try {
-      final update = await Updater.check();
-      if (mounted) setState(() => _update = update);
+      if (!platform.isWebApp) {
+        final update = await Updater.check();
+        if (mounted) setState(() => _update = update);
+      }
     } catch (_) {}
     if (!Api.instance.isAdmin) return;
     try {
@@ -147,15 +146,9 @@ class _MoreScreenState extends State<MoreScreen> {
       if (names.isEmpty) throw ApiError(0, 'file $extension non trovato');
       final name = names.first;
       status.value = 'Scarico $name…';
-      final dir = await getTemporaryDirectory();
-      final file = await Api.instance.download('/admin/esporta/$id/$name', File('${dir.path}/$name'));
+      final data = await Api.instance.download('/admin/esporta/$id/$name');
       dialog.close();
-      final opened = await OpenFilex.open(file.path);
-      if (opened.type == ResultType.noAppToOpen) {
-        problem = 'Nessuna app sul telefono apre i file $extension (serve un lettore PDF o un foglio di calcolo)';
-      } else if (opened.type != ResultType.done) {
-        problem = 'File scaricato ma non aperto: ${opened.message}';
-      }
+      problem = await platform.deliverFile(name, data);
     } on ApiError catch (e) {
       problem = e.status == 401 ? null : e.message;
     } catch (e) {
@@ -194,6 +187,9 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           const SizedBox(height: 12),
           if (api.isAdmin && _health != null) ...[_healthPanel(), const SizedBox(height: 12)],
+          // Nella versione web non c'e' l'aggiornamento: a un utente normale
+          // non resterebbe niente in questo riquadro.
+          if (api.isAdmin || !platform.isWebApp) ...[
           Panel(
             padding: EdgeInsets.zero,
             child: Column(children: [
@@ -214,8 +210,9 @@ class _MoreScreenState extends State<MoreScreen> {
                   subtitle: 'PDF, Excel o CSV con foto e lotto interno',
                   onTap: _chooseExport,
                 ),
-                divider,
+                if (!platform.isWebApp) divider,
               ],
+              if (!platform.isWebApp)
               MenuRow(
                 icon: Icons.system_update_outlined,
                 title: update?.available == true ? 'Aggiornamento disponibile' : 'Aggiornamento',
@@ -236,6 +233,7 @@ class _MoreScreenState extends State<MoreScreen> {
             ]),
           ),
           const SizedBox(height: 12),
+          ],
           Panel(padding: EdgeInsets.zero, child: MenuRow(icon: Icons.logout, title: 'Esci', danger: true, onTap: _logout)),
         ]),
       ),

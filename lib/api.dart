@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+
+import 'platform/platform.dart' as platform;
 
 const String kServer = 'https://etichette-margherita.duckdns.org';
 const String kApi = '$kServer/app/api/v1';
@@ -76,24 +77,12 @@ class Api {
   }
 
   Future<void> login(String name, String pin) async {
-    final body = await post('/login', {'nome': name, 'pin': pin, 'dispositivo': await _deviceName()});
+    final body = await post('/login', {'nome': name, 'pin': pin, 'dispositivo': await platform.deviceName()});
     token = body['token'] as String;
     userName = body['utente']['nome'] as String;
     isAdmin = body['utente']['admin'] == true;
     await _storage.write(key: 'token', value: token);
     await _saveUser();
-  }
-
-  /// "Samsung SM-A546B · Android 14": cosi' l'amministratore riconosce i
-  /// telefoni collegati nella schermata Utenti.
-  static Future<String> _deviceName() async {
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      final brand = info.manufacturer.isEmpty ? '' : '${info.manufacturer[0].toUpperCase()}${info.manufacturer.substring(1)} ';
-      return '$brand${info.model} · Android ${info.version.release}';
-    } catch (_) {
-      return 'Android';
-    }
   }
 
   Future<void> _saveUser() async {
@@ -140,12 +129,12 @@ class Api {
       rethrow;
     } on TimeoutException {
       throw ApiError(0, 'Il server non risponde: riprova tra poco');
-    } on SocketException {
-      throw ApiError(0, 'Server non raggiungibile: controlla la connessione');
     } on http.ClientException {
       throw ApiError(0, 'Server non raggiungibile: controlla la connessione');
-    } on HandshakeException {
-      throw ApiError(0, 'Connessione sicura non riuscita: riprova');
+    } catch (e) {
+      final message = platform.networkErrorMessage(e);
+      if (message != null) throw ApiError(0, message);
+      rethrow;
     }
   }
 
@@ -168,12 +157,13 @@ class Api {
       () async => _decode(await _client.delete(uri(path), headers: authHeaders).timeout(_timeout)));
 
   /// Una foto al server: nuova scheda (`/foto`) o foto in piu' di una
-  /// scheda (`/schede/ID/foto`).
-  Future<Map<String, dynamic>> uploadPhoto(String path, File photo, {String caption = '', String? key}) =>
+  /// scheda (`/schede/ID/foto`). I byte della foto, non un file: cosi' vale
+  /// anche nel browser.
+  Future<Map<String, dynamic>> uploadPhoto(String path, Uint8List photo, {String caption = '', String? key}) =>
       _guard(() async {
         final request = http.MultipartRequest('POST', uri(path))
           ..headers.addAll(authHeaders)
-          ..files.add(await http.MultipartFile.fromPath('foto', photo.path, filename: 'foto.jpg'));
+          ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: 'foto.jpg'));
         if (caption.trim().isNotEmpty) request.fields['didascalia'] = caption.trim();
         if (key != null) request.fields['chiave'] = key;
         final streamed = await _client.send(request).timeout(const Duration(minutes: 3));
@@ -187,29 +177,24 @@ class Api {
         return r.bodyBytes;
       });
 
-  /// Scarica su file, con l'avanzamento (0..1, o null se non si sa).
-  Future<File> download(String path, File target, {void Function(double?)? onProgress}) => _guard(() async {
+  /// Scarica tutto in memoria, con l'avanzamento (0..1, o null se non si
+  /// sa): esportazioni e aggiornamento.
+  Future<Uint8List> download(String path, {void Function(double?)? onProgress}) => _guard(() async {
         final request = http.Request('GET', uri(path))..headers.addAll(authHeaders);
         final response = await _client.send(request).timeout(const Duration(minutes: 1));
         if (response.statusCode >= 400) {
           await _decode(await http.Response.fromStream(response));
         }
         final total = response.contentLength;
-        var done = 0;
-        final sink = target.openWrite();
-        try {
-          // Se la rete si pianta a meta' non si resta appesi per sempre.
-          await for (final chunk in response.stream.timeout(const Duration(seconds: 30))) {
-            sink.add(chunk);
-            done += chunk.length;
-            onProgress?.call(total != null && total > 0 ? done / total : null);
-          }
-        } finally {
-          await sink.close();
+        final data = BytesBuilder(copy: false);
+        // Se la rete si pianta a meta' non si resta appesi per sempre.
+        await for (final chunk in response.stream.timeout(const Duration(seconds: 30))) {
+          data.add(chunk);
+          onProgress?.call(total != null && total > 0 ? data.length / total : null);
         }
-        if (total != null && total > 0 && done != total) {
-          throw ApiError(0, 'Download interrotto ($done di $total byte): riprova');
+        if (total != null && total > 0 && data.length != total) {
+          throw ApiError(0, 'Download interrotto (${data.length} di $total byte): riprova');
         }
-        return target;
+        return data.takeBytes();
       });
 }

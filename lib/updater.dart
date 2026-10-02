@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'api.dart';
+import 'platform/platform.dart' as platform;
 import 'ui.dart';
 
 class UpdateInfo {
@@ -42,7 +39,8 @@ class Updater {
   /// All'avvio e quando l'app torna in primo piano (al massimo ogni ora):
   /// se c'e' una versione nuova la propone.
   static Future<void> offerIfNew(BuildContext context, {bool onResume = false}) async {
-    if (_installing) return;
+    // Nel browser la pagina si aggiorna da sola: niente da proporre.
+    if (platform.isWebApp || _installing) return;
     if (onResume && _lastCheck != null && DateTime.now().difference(_lastCheck!) < const Duration(hours: 1)) return;
     UpdateInfo info;
     try {
@@ -86,20 +84,12 @@ class Updater {
     );
     String? problem;
     try {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/EtichetteMargherita.apk');
-      if (await file.exists()) await file.delete();
-      await Api.instance.download('/apk', file, onProgress: (v) => progress.value = v);
+      final apk = await Api.instance.download('/apk', onProgress: (v) => progress.value = v);
       dialog.close();
-      final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
-      if (result.type != ResultType.done) {
-        // Di solito e' il permesso "installa app sconosciute" appena chiesto:
-        // la stessa versione si potra' riproporre.
-        _offeredBuild = null;
-        problem = result.type == ResultType.permissionDenied
-            ? 'Consenti "Installa app sconosciute" per Etichette, poi riprova da Altro › Aggiornamento'
-            : 'Installazione non avviata: ${result.message}';
-      }
+      problem = await platform.installApk(apk);
+      // Di solito e' il permesso "installa app sconosciute" appena chiesto:
+      // la stessa versione si potra' riproporre.
+      if (problem != null) _offeredBuild = null;
     } on ApiError catch (e) {
       problem = 'Download non riuscito: ${e.message}';
     } catch (e) {

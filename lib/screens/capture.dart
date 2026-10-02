@@ -1,10 +1,11 @@
-import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api.dart';
+import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import 'reading.dart';
 
@@ -20,7 +21,8 @@ class CaptureScreen extends StatefulWidget {
 class _CaptureScreenState extends State<CaptureScreen> {
   final _picker = ImagePicker();
   final _caption = TextEditingController();
-  final List<File> _photos = [];
+  /// Le foto scelte, gia' lette in memoria (sul telefono e nel browser).
+  final List<Uint8List> _photos = [];
   bool _sending = false;
   String _progress = '';
   static const _maxPhotos = 5;
@@ -34,10 +36,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// Se Android ha chiuso l'app mentre la fotocamera era aperta, la foto
   /// scattata si recupera qui invece di andare persa.
   Future<void> _recover() async {
+    if (platform.isWebApp) return; // solo Android chiude l'app mentre fotografa
     try {
       final lost = await _picker.retrieveLostData();
-      if (!lost.isEmpty && lost.files != null && mounted) {
-        setState(() => _photos.addAll(lost.files!.map((f) => File(f.path))));
+      if (!lost.isEmpty && lost.files != null) {
+        final bytes = [for (final f in lost.files!) await f.readAsBytes()];
+        if (mounted) setState(() => _photos.addAll(bytes));
       }
     } catch (_) {}
   }
@@ -47,10 +51,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
       // 2400 px bastano a leggere lotti minuscoli e pesano un quinto dell'originale.
       if (source == ImageSource.gallery) {
         final files = await _picker.pickMultiImage(maxWidth: 2400, maxHeight: 2400, imageQuality: 88, limit: _maxPhotos);
-        setState(() => _photos.addAll(files.take(_maxPhotos - _photos.length).map((f) => File(f.path))));
+        final bytes = [for (final f in files.take(_maxPhotos - _photos.length)) await f.readAsBytes()];
+        if (mounted) setState(() => _photos.addAll(bytes));
       } else {
         final file = await _picker.pickImage(source: source, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
-        if (file != null) setState(() => _photos.add(File(file.path)));
+        if (file != null) {
+          final bytes = await file.readAsBytes();
+          if (mounted) setState(() => _photos.add(bytes));
+        }
       }
     } catch (e) {
       if (mounted) toast(context, 'Fotocamera non disponibile: $e', error: true);
@@ -171,7 +179,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     return Stack(children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_photos[i], width: 190, height: 260, fit: BoxFit.cover, cacheWidth: 400),
+                        child: Image.memory(_photos[i], width: 190, height: 260, fit: BoxFit.cover, cacheWidth: 400),
                       ),
                       Positioned(
                         right: 6,
