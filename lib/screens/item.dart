@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
-import 'correct.dart';
+import 'inline_edit.dart';
 import 'home.dart';
 import 'print.dart';
 
@@ -123,13 +123,57 @@ class _ItemScreenState extends State<ItemScreen> {
         ),
       );
 
-  Widget _kv(String k, String v, {bool isMono = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SectionLabel(k),
-        const SizedBox(height: 5),
-        isMono
-            ? LotTag(v, size: 15)
-            : SelectableText(v, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500)),
-      ]);
+  /// Salva uno o piu' campi (come /correggi: ogni modifica resta registrata
+  /// con il nome di chi l'ha fatta) e mostra subito la scheda aggiornata.
+  Future<bool> _save(Map<String, dynamic> changes) async {
+    final result = await attempt(context, () => Api.instance.patch('/schede/${widget.itemId}', changes));
+    if (result == null || !mounted) return false;
+    _request++; // un caricamento gia' in volo non riporta i valori di prima
+    setState(() => _s = result['scheda'] as Map<String, dynamic>);
+    archiveChanged.value++;
+    toast(context, result['cloud_in_sospeso'] == true ? 'Salvato. Il cloud si aggiorna appena possibile.' : 'Salvato');
+    return true;
+  }
+
+  Future<void> _editExpiry(Map<String, dynamic> s) async {
+    final current = s['scadenza'] as String?;
+    var choice = 'scegli';
+    if (current != null) {
+      final picked = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            MenuRow(icon: Icons.event, title: 'Cambia la data', onTap: () => Navigator.pop(context, 'scegli')),
+            MenuRow(icon: Icons.event_busy, title: 'Togli la scadenza', subtitle: 'L\'etichetta non ne ha una',
+                onTap: () => Navigator.pop(context, 'togli')),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      );
+      if (picked == null || !mounted) return;
+      choice = picked;
+    }
+    if (choice == 'togli') {
+      await _save({'scadenza': ''});
+      return;
+    }
+    final date = await pickExpiry(context, current);
+    if (date == null || !mounted || isoDay(date) == current) return;
+    await _save({'scadenza': isoDay(date)});
+  }
+
+  Future<void> _editAllergens(Map<String, dynamic> s) async {
+    final value = await pickAllergens(context, s['allergeni'] as String?);
+    if (value == null || !mounted) return;
+    final unchanged = value == '-'
+        ? s['allergeni_nessuno'] == true
+        : splitAllergens(value).length == splitAllergens(s['allergeni'] as String?).length &&
+            splitAllergens(value).containsAll(splitAllergens(s['allergeni'] as String?)) &&
+            s['allergeni_a_mano'] == true;
+    if (unchanged) return;
+    await _save({'allergeni': value});
+  }
 
   Widget _menu() => PopupMenuButton<String>(
         tooltip: 'Altre azioni',
@@ -151,6 +195,7 @@ class _ItemScreenState extends State<ItemScreen> {
   Widget build(BuildContext context) {
     final s = _s;
     final top = MediaQuery.of(context).padding.top;
+    final editable = s != null && s['in_lavorazione'] != true;
     if (s == null) {
       return Scaffold(
         appBar: AppBar(title: Text('Scheda #${widget.itemId}')),
@@ -204,54 +249,71 @@ class _ItemScreenState extends State<ItemScreen> {
                       const SizedBox(width: 8),
                       Pill.status(s),
                     ]),
-                    const SizedBox(height: 6),
-                    Text(s['prodotto'] ?? 'Prodotto non letto',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -.2)),
-                    const SizedBox(height: 14),
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(child: _kv('Lotto', s['lotto'] ?? '—', isMono: true)),
-                      Expanded(child: _kv('Scadenza', itDate(s['scadenza']))),
-                    ]),
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: divider),
-                    _kv('Produttore', s['produttore'] ?? '—'),
-                    const SizedBox(height: 14),
-                    _kv('Allergeni', _allergens(s)),
+                    const SizedBox(height: 4),
+                    EditableField(
+                      label: 'Prodotto',
+                      value: s['prodotto'] as String?,
+                      big: true,
+                      placeholder: 'Prodotto non letto',
+                      enabled: editable,
+                      onSave: (v) => _save({'prodotto': v}),
+                    ),
+                    const SizedBox(height: 10),
+                    EditableField(
+                      label: 'Lotto',
+                      value: s['lotto'] as String?,
+                      mono: true,
+                      caps: TextCapitalization.characters,
+                      enabled: editable,
+                      onSave: (v) => _save({'lotto': v}),
+                    ),
+                    const SizedBox(height: 10),
+                    EditableTap(
+                      label: const SectionLabel('Scadenza'),
+                      enabled: editable,
+                      onTap: () => _editExpiry(s),
+                      child: Text(itDate(s['scadenza']),
+                          style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w500,
+                              color: s['scadenza'] == null ? C.faint : null)),
+                    ),
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: divider),
+                    EditableField(
+                      label: 'Produttore',
+                      value: s['produttore'] as String?,
+                      enabled: editable,
+                      onSave: (v) => _save({'produttore': v}),
+                    ),
+                    const SizedBox(height: 10),
+                    EditableTap(
+                      label: const SectionLabel('Allergeni'),
+                      enabled: editable,
+                      onTap: () => _editAllergens(s),
+                      child: Text(_allergens(s), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500)),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      editable
+                          ? 'Tocca un campo per correggerlo: la modifica resta registrata con il tuo nome'
+                          : 'Si potrà correggere quando la lettura è finita',
+                      style: const TextStyle(fontSize: 12, color: C.muted),
+                    ),
                   ]),
                 ),
                 const SizedBox(height: 12),
                 if (s['lotto_interno'] != null) _InternalLotCard(s['lotto_interno'] as Map<String, dynamic>),
                 const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: s['in_lavorazione'] == true
-                          ? null
-                          : () async {
-                              final changed = await Navigator.push<bool>(
-                                  context, MaterialPageRoute(builder: (_) => CorrectScreen(s)));
-                              if (changed == true) {
-                                archiveChanged.value++;
-                                _load();
-                              }
-                            },
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Correggi'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: s['lotto_interno'] == null
-                          ? null
-                          : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => PrintScreen(s['lotto_interno'] as Map<String, dynamic>)),
-                              ),
-                      icon: const Icon(Icons.print_outlined),
-                      label: const Text('Etichetta'),
-                    ),
-                  ),
-                ]),
+                FilledButton.icon(
+                  onPressed: s['lotto_interno'] == null
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => PrintScreen(s['lotto_interno'] as Map<String, dynamic>)),
+                          ),
+                  icon: const Icon(Icons.print_outlined),
+                  label: const Text('Stampa etichetta'),
+                ),
               ]),
             ),
           ),
