@@ -5,6 +5,7 @@ import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import '../updater.dart';
 import 'login.dart';
+import 'machines.dart';
 import 'users.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -200,6 +201,16 @@ class _MoreScreenState extends State<MoreScreen> {
                   subtitle: _users.isEmpty ? 'Accessi, telefoni e PIN' : '${_users.length} utenti · $online collegati',
                   onTap: () async {
                     await Navigator.push(context, MaterialPageRoute(builder: (_) => const UsersScreen()));
+                    _load();
+                  },
+                ),
+                divider,
+                MenuRow(
+                  icon: Icons.dns_outlined,
+                  title: 'Macchine e stampa',
+                  subtitle: 'Stato, coda di stampa, riavvii',
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const MachinesScreen()));
                     _load();
                   },
                 ),
