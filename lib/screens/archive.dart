@@ -7,6 +7,7 @@ import '../format.dart';
 import '../ui.dart';
 import 'home.dart';
 import 'item.dart';
+import 'multi_print.dart';
 
 enum Filter { all, today, review, app }
 
@@ -24,6 +25,27 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   Map<String, dynamic>? _summary;
   String? _error;
   bool _loading = true;
+  /// Schede scelte per la stampa di piu' etichette (tenendo premuta una
+  /// scheda si entra nella selezione), nell'ordine in cui sono state scelte.
+  final Map<int, Map<String, dynamic>> _selected = {};
+
+  bool get _selecting => _selected.isNotEmpty;
+
+  void _toggle(Map<String, dynamic> s) {
+    if (s['in_lavorazione'] == true) {
+      toast(context, 'Questa scheda è ancora in lettura: si potrà stampare quando è pronta');
+      return;
+    }
+    setState(() {
+      final id = s['id'] as int;
+      if (_selected.remove(id) == null) _selected[id] = s;
+    });
+  }
+
+  Future<void> _printSelection() async {
+    await printSelected(context, _selected.values.toList());
+    if (mounted) setState(_selected.clear);
+  }
 
   @override
   void initState() {
@@ -144,7 +166,36 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   Widget build(BuildContext context) {
     final s = _summary;
     return HeaderScaffold(
-      header: NavyHeader(
+      bottom: _selecting
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  onPressed: _printSelection,
+                  icon: const Icon(Icons.print),
+                  label: Text(_selected.length == 1 ? 'Stampa 1 etichetta' : 'Stampa ${_selected.length} etichette'),
+                ),
+              ),
+            )
+          : null,
+      header: _selecting
+          ? NavyHeader(
+              title: _selected.length == 1 ? '1 selezionata' : '${_selected.length} selezionate',
+              subtitle: 'Tocca altre schede per aggiungerle',
+              actions: [
+                HeaderButton(
+                  icon: Icons.select_all,
+                  tooltip: 'Seleziona tutte quelle in elenco',
+                  onPressed: () => setState(() {
+                    for (final s in _items) {
+                      if (s['in_lavorazione'] != true) _selected[s['id'] as int] = s;
+                    }
+                  }),
+                ),
+                HeaderButton(icon: Icons.close, tooltip: 'Annulla selezione', onPressed: () => setState(_selected.clear)),
+              ],
+            )
+          : NavyHeader(
         title: 'Archivio',
         subtitle: s == null ? 'Etichette cucina' : 'Etichette cucina · ${s['totale']} schede',
         bottom: s == null
@@ -196,6 +247,15 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             ],
           ),
         ),
+        if (!_selecting)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Row(children: [
+              Icon(Icons.touch_app_outlined, size: 15, color: C.faint),
+              SizedBox(width: 6),
+              Text('Tieni premuta una scheda per stamparne più insieme', style: TextStyle(fontSize: 12, color: C.muted)),
+            ]),
+          ),
         const SizedBox(height: 4),
         Expanded(child: _body()),
       ]),
@@ -221,7 +281,13 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: _items.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, i) => ItemTile(_items[i], onChanged: _load),
+              itemBuilder: (context, i) => ItemTile(
+                _items[i],
+                onChanged: _load,
+                selected: _selected.containsKey(_items[i]['id']),
+                selecting: _selecting,
+                onSelect: () => _toggle(_items[i]),
+              ),
             ),
     );
   }
@@ -235,9 +301,14 @@ String shortName(String? name) {
 }
 
 class ItemTile extends StatelessWidget {
-  const ItemTile(this.s, {super.key, this.onChanged});
+  const ItemTile(this.s, {super.key, this.onChanged, this.selected = false, this.selecting = false, this.onSelect});
   final Map<String, dynamic> s;
   final VoidCallback? onChanged;
+  final bool selected;
+  final bool selecting;
+  /// Tenere premuto (o toccare, durante la selezione) sceglie la scheda per
+  /// la stampa di piu' etichette.
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -247,16 +318,32 @@ class ItemTile extends StatelessWidget {
     final internal = s['lotto_interno_codice'] as String?;
     return Panel(
       padding: const EdgeInsets.all(12),
-      color: reading ? const Color(0xFFF5F8FF) : null,
-      onTap: () async {
-        await openItem(context, s['id'] as int);
-        onChanged?.call();
-      },
+      color: selected ? C.infoBg : (reading ? const Color(0xFFF5F8FF) : null),
+      border: selected ? Border.all(color: C.blue, width: 2) : null,
+      onLongPress: onSelect,
+      onTap: selecting
+          ? onSelect
+          : () async {
+              await openItem(context, s['id'] as int);
+              onChanged?.call();
+            },
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(width: 72, height: 72, child: ItemPhoto(s['id'] as int, mini: true)),
-        ),
+        Stack(children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(width: 72, height: 72, child: ItemPhoto(s['id'] as int, mini: true)),
+          ),
+          if (selecting)
+            Positioned(
+              top: 4,
+              left: 4,
+              child: Icon(
+                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: selected ? C.blue : Colors.white,
+                shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
+              ),
+            ),
+        ]),
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

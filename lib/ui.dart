@@ -85,11 +85,13 @@ ThemeData appTheme() {
 
 /// Il riquadro bianco con ombra leggera di tutte le schermate.
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.color, this.onTap});
+  const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(14), this.color, this.onTap, this.onLongPress, this.border});
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final BoxBorder? border;
 
   @override
   Widget build(BuildContext context) {
@@ -99,12 +101,13 @@ class Panel extends StatelessWidget {
         color: color ?? Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: color == C.navy ? null : panelShadow,
+        border: border,
       ),
       child: Material(
         type: MaterialType.transparency,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
-        child: onTap == null ? inner : InkWell(onTap: onTap, child: inner),
+        child: onTap == null && onLongPress == null ? inner : InkWell(onTap: onTap, onLongPress: onLongPress, child: inner),
       ),
     );
   }
