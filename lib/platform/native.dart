@@ -19,6 +19,9 @@ Future<String> deviceName() async {
   }
 }
 
+/// Su Android il tasto indietro lo gestisce gia' l'app: niente da fare.
+void onBrowserBack(void Function() back) {}
+
 /// Un errore di rete detto in italiano, o null se non e' un errore di rete.
 String? networkErrorMessage(Object error) {
   if (error is SocketException) return 'Server non raggiungibile: controlla la connessione';

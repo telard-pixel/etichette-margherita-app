@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
@@ -51,6 +52,12 @@ Future<String?> deliverFile(String name, List<int> bytes) async {
   link.remove();
   Future<void>.delayed(const Duration(seconds: 30), () => web.URL.revokeObjectURL(url));
   return null;
+}
+
+/// Il gesto "indietro" del browser (vedi tool/web_tweak.py) chiama questa
+/// funzione invece di lasciare la pagina.
+void onBrowserBack(void Function() back) {
+  globalContext.setProperty('etichetteIndietro'.toJS, back.toJS);
 }
 
 /// Nel browser non c'e' niente da installare: la pagina si aggiorna da sola.

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api.dart';
+import 'platform/platform.dart' as platform;
 import 'screens/home.dart';
 import 'screens/login.dart';
 import 'ui.dart';
@@ -16,6 +17,9 @@ void main() {
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light),
   );
   runApp(const EtichetteApp());
+  // Nella versione web il gesto "indietro" chiude la schermata aperta (se
+  // ce n'e' una) invece di ricaricare la pagina.
+  platform.onBrowserBack(() => navigatorKey.currentState?.maybePop());
 }
 
 class EtichetteApp extends StatelessWidget {

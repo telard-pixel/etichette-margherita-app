@@ -61,6 +61,25 @@ DIAGNOSTICA = """
 """
 html = html.replace("</head>", DIAGNOSTICA + "</head>", 1)
 
+# Gesto "indietro" del browser (scorrimento da sinistra su iPhone, tasto
+# indietro su Android): non deve uscire o ricaricare la pagina, ma fare
+# l'indietro dell'app (chiudere la schermata aperta). Registrato prima di
+# Flutter e in fase di cattura, cosi' la gestione di Flutter non lo vede:
+# una voce "di guardia" nella cronologia resta sempre davanti alla pagina.
+INDIETRO = """
+  <script>
+  (function () {
+    history.pushState({ guardia: 1 }, '', location.href);
+    window.addEventListener('popstate', function (e) {
+      e.stopImmediatePropagation();
+      history.pushState({ guardia: 1 }, '', location.href);
+      if (typeof window.etichetteIndietro === 'function') window.etichetteIndietro();
+    }, true);
+  })();
+  </script>
+"""
+html = html.replace("</head>", INDIETRO + "</head>", 1)
+
 # Schermata di caricamento al posto della pagina bianca: la prima volta il
 # browser scarica qualche MB (motore grafico e programma) prima di disegnare.
 CARICAMENTO = """
