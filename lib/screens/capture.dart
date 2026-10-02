@@ -73,6 +73,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   Future<void> _send() async {
+    if (_sentItem == null && _caption.text.trim().isEmpty) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Manca il nome del prodotto'),
+          content: const Text('Senza nome la scheda resta "da rivedere" finché non lo scrivi. Inviare lo stesso?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Scrivo il nome')),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Invia lo stesso')),
+          ],
+        ),
+      );
+      if (go != true || !mounted) return;
+    }
     setState(() {
       _sending = true;
       _progress = 'Invio foto ${_sentCount + 1} di ${_photos.length}…';
@@ -178,11 +192,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 'Più foto = stesso prodotto (es. coperchio col lotto).',
                 style: TextStyle(color: C.muted, fontSize: 13)),
             const SizedBox(height: 16),
+            // E' la didascalia di Telegram: diventa il nome della scheda (Qwen
+            // legge lotto, scadenza e allergeni, ma il nome lo scrive la cucina).
+            const SectionLabel('Nome del prodotto'),
+            const SizedBox(height: 6),
             TextField(
               controller: _caption,
               enabled: !_sending,
               maxLength: 200,
-              decoration: const InputDecoration(hintText: 'Nota (facoltativa), es. "frigo 2"'),
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'es. Acciughe 2/10',
+                helperText: 'Come la didascalia su Telegram. Puoi aggiungere "lotto ABC123".',
+                helperMaxLines: 2,
+              ),
             ),
             const SizedBox(height: 8),
             Row(children: [
