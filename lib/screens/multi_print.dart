@@ -20,14 +20,11 @@ Future<void> printSelected(BuildContext context, List<Map<String, dynamic>> card
     builder: (_) => _PrintOptionsSheet(count: cards.length, old: old),
   );
   if (options == null || !context.mounted) return;
-  final body = await attempt(
-    context,
-    () => Api.instance.post('/stampe-multiple', {
-      'schede': [for (final s in cards) s['id'] as int],
-      'copie': options.$1,
-      'apertura': options.$2,
-    }),
-  );
+  final body = await printRequest(context, '/stampe-multiple', {
+    'schede': [for (final s in cards) s['id'] as int],
+    'copie': options.$1,
+    'apertura': options.$2,
+  });
   if (body == null || !context.mounted) return;
   await Navigator.push(
     context,

@@ -66,7 +66,7 @@ class _PrintScreenState extends State<PrintScreen> {
   Future<void> _print() async {
     if (_sending) return; // doppio tocco = una sola richiesta
     setState(() => _sending = true);
-    final body = await attempt(context, () => Api.instance.post('/lotti/$_lotId/stampa', {'copie': _copies}));
+    final body = await printRequest(context, '/lotti/$_lotId/stampa', {'copie': _copies});
     if (mounted) setState(() => _sending = false);
     if (body == null || !mounted) return;
     _generation++;

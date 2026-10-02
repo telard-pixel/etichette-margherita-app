@@ -10,9 +10,11 @@ const String kServer = 'https://etichette-margherita.duckdns.org';
 const String kApi = '$kServer/app/api/v1';
 
 class ApiError implements Exception {
-  ApiError(this.status, this.message);
+  ApiError(this.status, this.message, [this.body]);
   final int status;
   final String message;
+  /// La risposta del server, se c'era (es. "serve_conferma" dell'anti-flood).
+  final Map<String, dynamic>? body;
   @override
   String toString() => message;
 }
@@ -126,7 +128,7 @@ class Api {
       onLoggedOut?.call();
     }
     if (r.statusCode >= 400 || body['ok'] != true) {
-      throw ApiError(r.statusCode, body['errore']?.toString() ?? 'Errore ${r.statusCode}');
+      throw ApiError(r.statusCode, body['errore']?.toString() ?? 'Errore ${r.statusCode}', body);
     }
     return body;
   }

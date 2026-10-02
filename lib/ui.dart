@@ -364,6 +364,38 @@ Future<T?> attempt<T>(BuildContext context, Future<T> Function() call) async {
   }
 }
 
+/// Una richiesta di stampa. Se il server ferma la raffica (anti-flood:
+/// troppe copie in pochi minuti) chiede conferma e, con il sì, la rimanda
+/// con "forza". Null se annullata o non riuscita.
+Future<Map<String, dynamic>?> printRequest(BuildContext context, String path, Map<String, dynamic> body) async {
+  try {
+    return await Api.instance.post(path, body);
+  } on ApiError catch (e) {
+    if (!context.mounted) return null;
+    if (e.status == 429 && e.body?['serve_conferma'] == true) {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Tante stampe in pochi minuti'),
+          content: Text(e.message),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Stampa lo stesso'),
+            ),
+          ],
+        ),
+      );
+      if (yes != true || !context.mounted) return null;
+      return attempt(context, () => Api.instance.post(path, {...body, 'forza': true}));
+    }
+    if (e.status != 401) toast(context, e.message, error: true);
+    return null;
+  }
+}
+
 class ErrorRetry extends StatelessWidget {
   const ErrorRetry(this.message, this.onRetry, {super.key});
   final String message;
