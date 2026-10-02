@@ -119,25 +119,19 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _export(String extension) async {
     final status = ValueNotifier<String>('Preparo l\'esportazione…');
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Esporta archivio'),
-        content: ValueListenableBuilder<String>(
-          valueListenable: status,
-          builder: (context, value, _) => Row(children: [
-            const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
-            const SizedBox(width: 16),
-            Expanded(child: Text(value)),
-          ]),
-        ),
+    final dialog = BlockingDialog.show(
+      context,
+      title: 'Esporta archivio',
+      content: ValueListenableBuilder<String>(
+        valueListenable: status,
+        builder: (context, value, _) => Row(children: [
+          const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+          const SizedBox(width: 16),
+          Expanded(child: Text(value)),
+        ]),
       ),
     );
-    void close() {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-    }
-
+    String? problem;
     try {
       final started = await Api.instance.post('/admin/esporta', {});
       final id = started['esportazione']['id'];
@@ -149,24 +143,27 @@ class _MoreScreenState extends State<MoreScreen> {
         status.value = p.isEmpty ? 'Preparo l\'esportazione…' : 'Raccolgo le foto: $p';
       }
       if (job['stato'] != 'pronta') throw ApiError(0, 'esportazione non riuscita');
-      final name = (job['file'] as List).cast<String>().firstWhere((f) => f.endsWith(extension));
+      final names = (job['file'] as List).cast<String>().where((f) => f.endsWith(extension));
+      if (names.isEmpty) throw ApiError(0, 'file $extension non trovato');
+      final name = names.first;
       status.value = 'Scarico $name…';
       final dir = await getTemporaryDirectory();
       final file = await Api.instance.download('/admin/esporta/$id/$name', File('${dir.path}/$name'));
-      close();
-      await OpenFilex.open(file.path);
+      dialog.close();
+      final opened = await OpenFilex.open(file.path);
+      if (opened.type == ResultType.noAppToOpen) {
+        problem = 'Nessuna app sul telefono apre i file $extension (serve un lettore PDF o un foglio di calcolo)';
+      } else if (opened.type != ResultType.done) {
+        problem = 'File scaricato ma non aperto: ${opened.message}';
+      }
     } on ApiError catch (e) {
-      // Con l'accesso scaduto la finestra l'ha gia' chiusa il ritorno alla
-      // schermata di accesso.
-      if (e.status != 401) close();
-      if (mounted) toast(context, e.message, error: true);
-    } on StateError {
-      close();
-      if (mounted) toast(context, 'File $extension non trovato', error: true);
+      problem = e.status == 401 ? null : e.message;
     } catch (e) {
-      close();
-      if (mounted) toast(context, 'Esportazione non riuscita: $e', error: true);
+      problem = 'Esportazione non riuscita: $e';
+    } finally {
+      dialog.close();
     }
+    if (problem != null && mounted) toast(context, problem, error: true);
   }
 
   @override

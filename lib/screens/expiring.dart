@@ -59,7 +59,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
             ? Pill(daysLabel(days), bg: C.warnBg, fg: C.warnFg)
             : Pill(daysLabel(days), bg: C.infoBg, fg: C.infoFg);
     return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ItemScreen(s['id'] as int))),
+      onTap: () => openItem(context, s['id'] as int),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(children: [

@@ -202,6 +202,9 @@ class Pill extends StatelessWidget {
   final IconData? icon;
 
   factory Pill.status(Map<String, dynamic> s) {
+    if (s['in_archiviazione'] == true) {
+      return const Pill('In archiviazione…', bg: C.infoBg, fg: C.infoFg, icon: Icons.cloud_upload_outlined);
+    }
     if (s['in_lavorazione'] == true) return const Pill('In lettura…', bg: C.infoBg, fg: C.infoFg, icon: Icons.sync);
     if (s['fallita'] == true) return const Pill('Non riuscita', bg: C.badBg, fg: C.badFg);
     if (s['da_rivedere'] == true) return const Pill('Da rivedere', bg: C.warnBg, fg: C.warnFg);
@@ -312,15 +315,19 @@ const divider = Divider(height: 1, thickness: 1, color: C.line);
 
 /// Foto di una scheda dal server (con l'accesso dell'utente).
 class ItemPhoto extends StatelessWidget {
-  const ItemPhoto(this.itemId, {super.key, this.mini = false, this.fit = BoxFit.cover});
+  const ItemPhoto(this.itemId, {super.key, this.mini = false, this.fit = BoxFit.cover, this.cacheWidth});
   final int itemId;
   final bool mini;
   final BoxFit fit;
+  /// Larghezza a cui decodificare: una foto da 2400 px in un riquadro alto
+  /// 270 sono ~17 MB di memoria per niente sui telefoni economici.
+  final int? cacheWidth;
   @override
   Widget build(BuildContext context) => Image.network(
         Api.instance.uri('/schede/$itemId/foto', mini ? {'mini': '1'} : null).toString(),
         headers: Api.instance.authHeaders,
         fit: fit,
+        cacheWidth: cacheWidth,
         errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Icons.image_not_supported_outlined),
         loadingBuilder: (context, child, progress) => progress == null ? child : const PhotoPlaceholder(),
       );
@@ -384,4 +391,29 @@ class HeaderScaffold extends StatelessWidget {
         body: Column(children: [header, Expanded(child: body)]),
         bottomNavigationBar: bottom,
       );
+}
+
+/// Finestra di attesa (download, esportazione): non si chiude con il tasto
+/// Indietro e si chiude solo da sola, togliendo proprio se stessa. Un `pop()`
+/// generico, se la finestra non c'era piu', toglieva la pagina sotto e
+/// lasciava lo schermo nero.
+class BlockingDialog {
+  BlockingDialog._(this._navigator, this._route);
+  final NavigatorState _navigator;
+  final Route<void> _route;
+
+  static BlockingDialog show(BuildContext context, {required String title, required Widget content}) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(canPop: false, child: AlertDialog(title: Text(title), content: content)),
+    );
+    navigator.push(route);
+    return BlockingDialog._(navigator, route);
+  }
+
+  void close() {
+    if (_route.isActive) _navigator.removeRoute(_route);
+  }
 }

@@ -50,9 +50,10 @@ class _LoginScreenState extends State<LoginScreen> {
       await Api.instance.login(_name.text.trim(), _pin);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
-    } on ApiError catch (e) {
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _error = e.message;
+        _error = e is ApiError ? e.message : 'Accesso non riuscito: $e';
         _pin = '';
         _busy = false;
       });

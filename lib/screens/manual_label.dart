@@ -45,10 +45,15 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
     super.dispose();
   }
 
+  int _request = 0;
+
   Future<void> _load() async {
+    final request = ++_request;
     try {
       final body = await Api.instance.get('/lotti', {'giorno': isoDay(_day)});
-      if (!mounted) return;
+      // Vale solo l'ultima richiesta: "Ieri" poi subito "Oggi" non deve
+      // mostrare sotto "Oggi" i lotti di ieri.
+      if (!mounted || request != _request) return;
       setState(() {
         _lots = (body['lotti'] as List).cast<Map<String, dynamic>>();
         _suggested = (body['suggeriti'] as List).cast<String>();

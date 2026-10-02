@@ -88,17 +88,29 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _error = e.message;
         _loading = false;
       });
+      _schedulePoll(); // senza rete si riprova, piu' piano
     }
   }
 
   /// Finche' una foto e' in lettura, l'elenco si aggiorna da solo.
+  ///
+  /// Solo con l'Archivio davanti e l'app in primo piano (tornandoci si
+  /// ricarica comunque). Ogni 5 secondi per i primi due minuti, poi ogni 20:
+  /// se Qwen e' fermo una scheda resta "in lettura" per ore.
+  int _pollRounds = 0;
+
   void _schedulePoll() {
     _poll?.cancel();
-    if (_items.any((s) => s['in_lavorazione'] == true)) {
-      // Ogni 5 secondi; se Qwen e' fermo da tempo la scheda resta "in
-      // lettura" a lungo, e non serve chiedere piu' spesso di cosi'.
-      _poll = Timer(const Duration(seconds: 5), _load);
+    if (!_items.any((s) => s['in_lavorazione'] == true)) {
+      _pollRounds = 0;
+      return;
     }
+    final visible = currentTab.value == 0 &&
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+        (ModalRoute.of(context)?.isCurrent ?? true);
+    if (!visible) return;
+    _pollRounds++;
+    _poll = Timer(Duration(seconds: _pollRounds <= 24 ? 5 : 20), _load);
   }
 
   void _onSearch(String _) {
@@ -229,14 +241,15 @@ class ItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reading = s['in_lavorazione'] == true;
+    // Durante il caricamento sul cloud la scheda e' gia' letta: si vede il prodotto.
+    final reading = s['in_lavorazione'] == true && s['in_archiviazione'] != true;
     final who = s['dall_app'] == true ? '${shortName(s['inviata_da'])} · dall\'app' : shortName(s['inviata_da']);
     final internal = s['lotto_interno_codice'] as String?;
     return Panel(
       padding: const EdgeInsets.all(12),
       color: reading ? const Color(0xFFF5F8FF) : null,
       onTap: () async {
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => ItemScreen(s['id'] as int)));
+        await openItem(context, s['id'] as int);
         onChanged?.call();
       },
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

@@ -14,6 +14,7 @@
         android:label="Etichette"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
@@ -44,6 +45,19 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+        <!-- Esportazioni: per trovare un'app che apra PDF, Excel e CSV. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/pdf" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="text/csv" />
         </intent>
     </queries>
 </manifest>

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -61,33 +62,48 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// invece di creare una scheda doppia con la prima foto.
   int? _sentItem;
   int _sentCount = 0;
+  Object? _twin;
+  /// Chiave di questo invio: se la risposta del server si perde e si
+  /// ripreme "Invia", il server riconosce le foto gia' arrivate.
+  String? _batchKey;
+
+  static String _newKey() {
+    final r = Random.secure();
+    return List.generate(20, (_) => 'abcdefghijklmnopqrstuvwxyz0123456789'[r.nextInt(36)]).join();
+  }
 
   Future<void> _send() async {
     setState(() {
       _sending = true;
       _progress = 'Invio foto ${_sentCount + 1} di ${_photos.length}…';
     });
+    _batchKey ??= _newKey();
     try {
-      Object? twin;
       if (_sentItem == null) {
-        final first = await Api.instance.uploadPhoto('/foto', _photos.first, caption: _caption.text);
+        final first = await Api.instance.uploadPhoto('/foto', _photos.first, caption: _caption.text, key: '$_batchKey-0');
         _sentItem = first['scheda'] as int;
         _sentCount = 1;
-        twin = first['stessa_foto_di'];
+        _twin = first['stessa_foto_di'];
       }
       final itemId = _sentItem!;
       while (_sentCount < _photos.length) {
         setState(() => _progress = 'Invio foto ${_sentCount + 1} di ${_photos.length}…');
-        await Api.instance.uploadPhoto('/schede/$itemId/foto', _photos[_sentCount]);
+        // La nota va anche qui: se e' stata scritta dopo un invio a meta', la
+        // scheda la prende (il server la usa solo se la scheda non ne ha).
+        await Api.instance.uploadPhoto('/schede/$itemId/foto', _photos[_sentCount],
+            caption: _caption.text, key: '$_batchKey-$_sentCount');
         _sentCount++;
       }
       final count = _photos.length;
+      final twin = _twin;
       setState(() {
         _photos.clear();
         _caption.clear();
         _sending = false;
         _sentItem = null;
         _sentCount = 0;
+        _twin = null;
+        _batchKey = null;
       });
       if (!mounted) return;
       if (twin != null) toast(context, 'Attenzione: questa foto era già stata inviata (scheda #$twin)');
@@ -96,13 +112,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
         MaterialPageRoute(builder: (_) => ReadingScreen(itemId: itemId, photos: count)),
       );
       if (again != true) widget.onSent();
-    } on ApiError catch (e) {
-      setState(() => _sending = false);
+    } catch (e) {
+      // Qualunque errore (rete, foto sparita dalla cache): i tasti tornano
+      // attivi e si puo' riprovare.
       if (!mounted) return;
+      setState(() => _sending = false);
+      final message = e is ApiError ? e.message : 'errore imprevisto ($e)';
       final partial = _sentItem != null
           ? ' La scheda #$_sentItem è già creata con $_sentCount foto: "Invia" manda solo le altre.'
           : ' Le foto restano qui, riprova.';
-      toast(context, 'Non inviata: ${e.message}.$partial', error: true);
+      toast(context, 'Non inviata: $message.$partial', error: true);
     }
   }
 

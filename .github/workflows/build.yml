@@ -72,6 +72,20 @@ jobs:
           name: EtichetteMargherita-${{ env.VERSION }}
           path: EtichetteMargherita-*.apk
 
+      # Prima sul server (e' da li' che l'app si aggiorna), poi la release:
+      # se il caricamento fallisce, "Re-run" lo rifa' senza inciampare in una
+      # release gia' creata.
+      - name: Carica sul server
+        if: github.ref == 'refs/heads/main'
+        env:
+          UPLOAD_TOKEN: ${{ secrets.APP_UPLOAD_TOKEN }}
+        run: |
+          curl --fail-with-body -sS --retry 3 --retry-all-errors -X POST \
+            -H "X-Upload-Token: $UPLOAD_TOKEN" \
+            -F "build=$BUILD" -F "versione=$VERSION" \
+            -F "apk=@EtichetteMargherita-$VERSION.apk" \
+            https://etichette-margherita.duckdns.org/app/api/v1/admin/apk
+
       - name: Pubblica release
         if: github.ref == 'refs/heads/main'
         env:
@@ -79,15 +93,5 @@ jobs:
         run: |
           gh release create "v$VERSION" EtichetteMargherita-*.apk \
             --title "Etichette Margherita $VERSION" \
-            --notes "Si aggiorna da sola dall'app (Altro › Aggiornamento). L'APK è anche qui sotto."
-
-      - name: Carica sul server
-        if: github.ref == 'refs/heads/main'
-        env:
-          UPLOAD_TOKEN: ${{ secrets.APP_UPLOAD_TOKEN }}
-        run: |
-          curl --fail-with-body -sS -X POST \
-            -H "X-Upload-Token: $UPLOAD_TOKEN" \
-            -F "build=$BUILD" -F "versione=$VERSION" \
-            -F "apk=@EtichetteMargherita-$VERSION.apk" \
-            https://etichette-margherita.duckdns.org/app/api/v1/admin/apk
+            --notes "Si aggiorna da sola dall'app (Altro › Aggiornamento). L'APK è anche qui sotto." \
+          || gh release upload "v$VERSION" EtichetteMargherita-*.apk --clobber

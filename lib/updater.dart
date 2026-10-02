@@ -70,52 +70,44 @@ class Updater {
     if (_installing) return;
     _installing = true;
     final progress = ValueNotifier<double?>(null);
-    final navigator = Navigator.of(context, rootNavigator: true);
-    var dialogOpen = true;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Scarico l\'aggiornamento…'),
-        content: ValueListenableBuilder<double?>(
-          valueListenable: progress,
-          builder: (context, value, _) => Column(mainAxisSize: MainAxisSize.min, children: [
-            LinearProgressIndicator(value: value),
-            if (value != null) ...[
-              const SizedBox(height: 8),
-              Text('${(value * 100).round()}%'),
-            ],
-          ]),
-        ),
+    final dialog = BlockingDialog.show(
+      context,
+      title: 'Scarico l\'aggiornamento…',
+      content: ValueListenableBuilder<double?>(
+        valueListenable: progress,
+        builder: (context, value, _) => Column(mainAxisSize: MainAxisSize.min, children: [
+          LinearProgressIndicator(value: value),
+          if (value != null) ...[
+            const SizedBox(height: 8),
+            Text('${(value * 100).round()}%'),
+          ],
+        ]),
       ),
     );
-    void closeDialog() {
-      if (dialogOpen) {
-        dialogOpen = false;
-        navigator.pop();
-      }
-    }
-
     String? problem;
     try {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/EtichetteMargherita.apk');
       if (await file.exists()) await file.delete();
       await Api.instance.download('/apk', file, onProgress: (v) => progress.value = v);
-      closeDialog();
+      dialog.close();
       final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
-      if (result.type != ResultType.done) problem = 'Installazione non avviata: ${result.message}';
+      if (result.type != ResultType.done) {
+        // Di solito e' il permesso "installa app sconosciute" appena chiesto:
+        // la stessa versione si potra' riproporre.
+        _offeredBuild = null;
+        problem = result.type == ResultType.permissionDenied
+            ? 'Consenti "Installa app sconosciute" per Etichette, poi riprova da Altro › Aggiornamento'
+            : 'Installazione non avviata: ${result.message}';
+      }
     } on ApiError catch (e) {
-      // Accesso scaduto: l'app e' gia' tornata alla schermata di accesso e
-      // ha chiuso anche questa finestra; un altro "indietro" chiuderebbe quella.
-      if (e.status == 401) dialogOpen = false;
       problem = 'Download non riuscito: ${e.message}';
     } catch (e) {
       // Qualunque altro errore (memoria piena, permessi): la finestra non
       // deve restare aperta per sempre.
       problem = 'Aggiornamento non riuscito: $e';
     } finally {
-      closeDialog();
+      dialog.close();
       _installing = false;
     }
     if (problem != null && context.mounted) toast(context, problem, error: true);

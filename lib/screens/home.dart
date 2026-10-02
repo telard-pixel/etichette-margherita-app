@@ -11,6 +11,9 @@ import 'more.dart';
 /// Aumenta quando l'archivio va ricaricato (foto inviata, scheda corretta).
 final archiveChanged = ValueNotifier<int>(0);
 
+/// La scheda del menu in basso visibile ora (0 = Archivio).
+final currentTab = ValueNotifier<int>(0);
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -42,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _goTo(int tab) {
     // Ogni volta che si torna su una scheda i dati si rinfrescano (l'app puo'
     // restare aperta in cucina per giorni).
+    currentTab.value = tab;
     archiveChanged.value++;
     setState(() => _tab = tab);
   }

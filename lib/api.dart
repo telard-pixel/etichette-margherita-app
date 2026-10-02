@@ -41,10 +41,20 @@ class Api {
   /// Rientra con l'accesso salvato. Senza rete si fida di quello salvato:
   /// la prima richiesta vera dira' se e' ancora valido.
   Future<bool> restore() async {
-    token = await _storage.read(key: 'token');
+    try {
+      token = await _storage.read(key: 'token');
+      userName = await _storage.read(key: 'nome') ?? '';
+      isAdmin = await _storage.read(key: 'admin') == '1';
+    } catch (_) {
+      // Archivio cifrato illeggibile (es. telefono ripristinato da un
+      // backup): si ricomincia dall'accesso invece di restare sulla rotella.
+      try {
+        await _storage.deleteAll();
+      } catch (_) {}
+      token = null;
+      return false;
+    }
     if (token == null) return false;
-    userName = await _storage.read(key: 'nome') ?? '';
-    isAdmin = await _storage.read(key: 'admin') == '1';
     // Qui un accesso scaduto porta gia' alla schermata di accesso: niente
     // secondo salto da onLoggedOut.
     final callback = onLoggedOut;
@@ -108,7 +118,10 @@ class Api {
     } catch (_) {
       body = {'ok': false, 'errore': 'Risposta non valida dal server (${r.statusCode})'};
     }
-    if (r.statusCode == 401 && token != null) {
+    // Solo se il token rifiutato e' quello in uso: una richiesta lunga partita
+    // prima di un nuovo accesso non deve buttare fuori quello nuovo.
+    final sent = r.request?.headers['Authorization'];
+    if (r.statusCode == 401 && token != null && (sent == null || sent == 'Bearer $token')) {
       await _forget();
       onLoggedOut?.call();
     }
@@ -154,12 +167,13 @@ class Api {
 
   /// Una foto al server: nuova scheda (`/foto`) o foto in piu' di una
   /// scheda (`/schede/ID/foto`).
-  Future<Map<String, dynamic>> uploadPhoto(String path, File photo, {String caption = ''}) =>
+  Future<Map<String, dynamic>> uploadPhoto(String path, File photo, {String caption = '', String? key}) =>
       _guard(() async {
         final request = http.MultipartRequest('POST', uri(path))
           ..headers.addAll(authHeaders)
           ..files.add(await http.MultipartFile.fromPath('foto', photo.path, filename: 'foto.jpg'));
         if (caption.trim().isNotEmpty) request.fields['didascalia'] = caption.trim();
+        if (key != null) request.fields['chiave'] = key;
         final streamed = await _client.send(request).timeout(const Duration(minutes: 3));
         return _decode(await http.Response.fromStream(streamed));
       });

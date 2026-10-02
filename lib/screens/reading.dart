@@ -45,12 +45,31 @@ class _ReadingScreenState extends State<ReadingScreen> {
       final body = await Api.instance.get('/schede/${widget.itemId}');
       final s = body['scheda'] as Map<String, dynamic>;
       if (!mounted) return;
+      // "In lavorazione" vale fino all'archiviazione: solo allora c'e' il
+      // lotto interno da stampare.
       if (s['in_lavorazione'] != true) {
         archiveChanged.value++;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ItemScreen(widget.itemId)));
+        // Si sostituisce proprio questa pagina, e solo se c'e' ancora: se
+        // l'utente sta tornando indietro (o sopra c'e' una finestra) un
+        // pushReplacement generico sostituiva la pagina sbagliata.
+        final route = ModalRoute.of(context);
+        if (route != null && route.isActive) {
+          Navigator.of(context).replace(
+            oldRoute: route,
+            newRoute: MaterialPageRoute<void>(builder: (_) => ItemScreen(widget.itemId)),
+          );
+        }
         return;
       }
-    } on ApiError {
+    } on ApiError catch (e) {
+      if (e.status == 404) {
+        // Scheda eliminata nel frattempo (dal gruppo o da un amministratore).
+        if (mounted) {
+          toast(context, 'La scheda #${widget.itemId} è stata eliminata', error: true);
+          if (ModalRoute.of(context)?.isCurrent ?? false) Navigator.pop(context, true);
+        }
+        return;
+      }
       // senza rete si riprova al giro dopo
     }
     if (mounted) _next();

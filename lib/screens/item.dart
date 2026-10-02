@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,19 @@ import 'correct.dart';
 import 'home.dart';
 import 'print.dart';
 
+bool _opening = false;
+
+/// Apre una scheda; un doppio tocco veloce non ne apre due.
+Future<void> openItem(BuildContext context, int itemId) async {
+  if (_opening) return;
+  _opening = true;
+  try {
+    await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ItemScreen(itemId)));
+  } finally {
+    _opening = false;
+  }
+}
+
 class ItemScreen extends StatefulWidget {
   const ItemScreen(this.itemId, {super.key});
   final int itemId;
@@ -20,6 +34,8 @@ class ItemScreen extends StatefulWidget {
 class _ItemScreenState extends State<ItemScreen> {
   Map<String, dynamic>? _s;
   String? _error;
+  Timer? _poll;
+  int _request = 0;
 
   @override
   void initState() {
@@ -27,12 +43,26 @@ class _ItemScreenState extends State<ItemScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final request = ++_request;
+    _poll?.cancel();
     try {
       final body = await Api.instance.get('/schede/${widget.itemId}');
-      if (mounted) setState(() => _s = body['scheda'] as Map<String, dynamic>);
+      if (!mounted || request != _request) return;
+      final s = body['scheda'] as Map<String, dynamic>;
+      setState(() => _s = s);
+      // Rimessa in coda (foto aggiunta, riletta) o ancora in archiviazione:
+      // la scheda si aggiorna da sola finche' non e' pronta, poi compare il
+      // lotto interno e si puo' stampare.
+      if (s['in_lavorazione'] == true) _poll = Timer(const Duration(seconds: 5), _load);
     } on ApiError catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && request == _request) setState(() => _error = e.message);
     }
   }
 
@@ -77,7 +107,8 @@ class _ItemScreenState extends State<ItemScreen> {
     if (ok != null && mounted) {
       archiveChanged.value++;
       toast(context, 'Scheda #${widget.itemId} eliminata');
-      Navigator.pop(context);
+      final route = ModalRoute.of(context);
+      if (route != null && route.isActive) Navigator.of(context).removeRoute(route);
     }
   }
 
@@ -133,7 +164,7 @@ class _ItemScreenState extends State<ItemScreen> {
           SizedBox(
             height: 270 + top,
             child: Stack(fit: StackFit.expand, children: [
-              GestureDetector(onTap: _openPhoto, child: ItemPhoto(widget.itemId)),
+              GestureDetector(onTap: _openPhoto, child: ItemPhoto(widget.itemId, cacheWidth: 1200)),
               Positioned(
                 top: top + 12,
                 left: 16,

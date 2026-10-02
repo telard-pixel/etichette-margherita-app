@@ -78,7 +78,12 @@ class _CorrectScreenState extends State<CorrectScreen> {
     setState(() => _saving = false);
     if (result != null) {
       if (result['cloud_in_sospeso'] == true) toast(context, 'Salvata. La copia sul cloud si aggiorna appena possibile.');
-      Navigator.pop(context, true);
+      final route = ModalRoute.of(context);
+      if (route?.isCurrent ?? false) {
+        Navigator.pop(context, true);
+      } else if (route != null && route.isActive) {
+        Navigator.of(context).removeRoute(route); // sopra c'era una finestra
+      }
     }
   }
 

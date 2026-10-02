@@ -88,8 +88,16 @@ class _PrintScreenState extends State<PrintScreen> {
           _announce();
           return;
         }
-      } on ApiError {
-        // si riprova al secondo dopo
+      } on ApiError catch (e) {
+        if (e.status == 404) {
+          // Il server e' ripartito e la coda in memoria non c'e' piu'.
+          if (mounted) {
+            setState(() => _job = null);
+            toast(context, 'Stato della stampa perso (server riavviato): controlla la stampante', error: true);
+          }
+          return;
+        }
+        // altrimenti si riprova al secondo dopo
       }
       if (mounted && generation == _generation) _follow();
     });
