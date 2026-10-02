@@ -56,7 +56,9 @@ jobs:
       # La stessa app per il browser: servita dal server su /app/.
       - name: Compila web
         run: |
-          flutter build web --release --base-href /app/ --no-web-resources-cdn --build-name "$VERSION" --build-number "$BUILD"
+          # --wasm: motore grafico WebAssembly (skwasm), piu' fluido; i browser
+          # che non lo supportano usano da soli la versione JavaScript.
+          flutter build web --wasm --release --base-href /app/ --no-web-resources-cdn --build-name "$VERSION" --build-number "$BUILD"
           tar -czf "EtichetteMargherita-web-$VERSION.tgz" -C build/web .
           ls -l "EtichetteMargherita-web-$VERSION.tgz"
 

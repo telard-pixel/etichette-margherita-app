@@ -27,9 +27,11 @@ class C {
 
 const mono = TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600);
 
+// Un'ombra sola e corta: due ombre sfocate su ogni riquadro di un elenco
+// lungo costano molto da disegnare mentre si scorre (soprattutto nel
+// browser del telefono), e a vista la differenza e' minima.
 const panelShadow = [
-  BoxShadow(color: Color(0x0F0F1B2D), blurRadius: 2, offset: Offset(0, 1)),
-  BoxShadow(color: Color(0x0D0F1B2D), blurRadius: 16, offset: Offset(0, 6)),
+  BoxShadow(color: Color(0x140F1B2D), blurRadius: 6, offset: Offset(0, 2)),
 ];
 
 ThemeData appTheme() {
