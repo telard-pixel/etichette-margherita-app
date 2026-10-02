@@ -139,6 +139,52 @@ class _ItemScreenState extends State<ItemScreen> {
     return true;
   }
 
+  /// Foto di un giorno passato: si chiede se stampare con lotto e data di
+  /// allora o aprire un lotto nuovo con la data di oggi ("apertura"), che
+  /// tiene il lotto del fornitore. Come nel gruppo Telegram.
+  Future<void> _printLabel(Map<String, dynamic> lot) async {
+    var chosen = lot;
+    final day = lot['data_produzione'] as String? ?? '';
+    final todayIso = isoDay(today());
+    if (lot['scheda'] != null && day.compareTo(todayIso) < 0) {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text('La foto è del ${itDate(day)}: come stampo l\'etichetta?',
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            ),
+            MenuRow(
+              icon: Icons.event,
+              title: 'Tieni il ${itDate(day)}',
+              subtitle: 'Lotto interno ${lot['codice']}',
+              onTap: () => Navigator.pop(context, 'tieni'),
+            ),
+            MenuRow(
+              icon: Icons.fiber_new_outlined,
+              title: 'Apertura oggi ${itDate(todayIso)}',
+              subtitle: 'Lotto interno nuovo con la data di oggi'
+                  '${lot['lotto_fornitore'] != null ? ' · lotto fornitore ${lot['lotto_fornitore']}' : ''}',
+              onTap: () => Navigator.pop(context, 'apertura'),
+            ),
+            const SizedBox(height: 8),
+          ]),
+        ),
+      );
+      if (choice == null || !mounted) return;
+      if (choice == 'apertura') {
+        final body = await attempt(context, () => Api.instance.post('/schede/${widget.itemId}/apertura', {}));
+        if (body == null || !mounted) return;
+        chosen = body['lotto_interno'] as Map<String, dynamic>;
+      }
+    }
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => PrintScreen(chosen)));
+  }
+
   Future<void> _editExpiry(Map<String, dynamic> s) async {
     final current = s['scadenza'] as String?;
     var choice = 'scegli';
@@ -309,12 +355,7 @@ class _ItemScreenState extends State<ItemScreen> {
                 if (s['lotto_interno'] != null) _InternalLotCard(s['lotto_interno'] as Map<String, dynamic>),
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: s['lotto_interno'] == null
-                      ? null
-                      : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => PrintScreen(s['lotto_interno'] as Map<String, dynamic>)),
-                          ),
+                  onPressed: s['lotto_interno'] == null ? null : () => _printLabel(s['lotto_interno'] as Map<String, dynamic>),
                   icon: const Icon(Icons.print_outlined),
                   label: const Text('Stampa etichetta'),
                 ),
