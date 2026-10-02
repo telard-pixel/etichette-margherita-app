@@ -48,12 +48,31 @@ DIAGNOSTICA = """
       var r = e.reason, text = 'promessa: ' + (r && (r.stack || r.message) || r);
       problems.push(text); send(text);
     });
-    window.addEventListener('flutter-first-frame', function () { drawn = true; send('primo-disegno'); });
-    setTimeout(function () { if (!drawn) { send('nessun-disegno-dopo-20s'); show(); } }, 20000);
+    window.addEventListener('flutter-first-frame', function () {
+      drawn = true; send('primo-disegno');
+      var loading = document.getElementById('caricamento');
+      if (loading) loading.remove();
+    });
+    // Con la rete del telefono la prima apertura puo' metterci mezzo minuto:
+    // l'avviso compare solo se dopo 90 secondi non c'e' ancora niente.
+    setTimeout(function () { if (!drawn) { send('nessun-disegno-dopo-90s'); show(); } }, 90000);
   })();
   </script>
 """
 html = html.replace("</head>", DIAGNOSTICA + "</head>", 1)
+
+# Schermata di caricamento al posto della pagina bianca: la prima volta il
+# browser scarica qualche MB (motore grafico e programma) prima di disegnare.
+CARICAMENTO = """
+  <div id="caricamento" style="position:fixed;inset:0;background:#0F1B2D;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;padding:24px">
+    <img src="icons/Icon-192.png" width="88" height="88" alt="" style="border-radius:22px">
+    <div style="font-size:22px;font-weight:700">Etichette Margherita</div>
+    <div style="width:36px;height:36px;border:4px solid rgba(255,255,255,.2);border-top-color:#8FB1F0;border-radius:50%;animation:giro 0.9s linear infinite"></div>
+    <div style="color:#A9B6CA;max-width:280px">Caricamento… la prima volta può richiedere qualche secondo in più.</div>
+    <style>@keyframes giro{to{transform:rotate(360deg)}}@media (prefers-reduced-motion: reduce){#caricamento div{animation:none!important}}</style>
+  </div>
+"""
+html = re.sub(r"<body[^>]*>", lambda m: m.group(0) + CARICAMENTO, html, count=1)
 index.write_text(html)
 
 manifest_path = web / "manifest.json"
