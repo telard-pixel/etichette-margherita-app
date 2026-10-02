@@ -32,19 +32,22 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
     super.dispose();
   }
 
+  int _request = 0;
+
   Future<void> _load() async {
+    final request = ++_request;
     try {
       final body = await Api.instance.get('/schede', {'scadenza_giorni': '$_days'});
       final items = (body['schede'] as List).cast<Map<String, dynamic>>()
         ..sort((a, b) => (a['scadenza'] as String? ?? '').compareTo(b['scadenza'] as String? ?? ''));
-      if (mounted) {
+      if (mounted && request == _request) {
         setState(() {
           _items = items;
           _error = null;
         });
       }
     } on ApiError catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && request == _request) setState(() => _error = e.message);
     }
   }
 

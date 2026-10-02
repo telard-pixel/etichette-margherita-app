@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
+import 'home.dart';
 import 'print.dart';
 
 /// Come /etichetta: un lotto interno per un prodotto fatto in cucina, con la
@@ -15,20 +16,33 @@ class ManualLabelScreen extends StatefulWidget {
 
 class _ManualLabelScreenState extends State<ManualLabelScreen> {
   final _product = TextEditingController();
-  late DateTime _day = _today;
+  // La data scelta a mano vale solo per il giorno in cui e' stata scelta:
+  // su un telefono lasciato aperto in cucina, il mattino dopo "Oggi" deve
+  // essere di nuovo oggi, non la data di ieri rimasta selezionata.
+  DateTime? _picked;
+  DateTime? _pickedOn;
   List<Map<String, dynamic>> _lots = [];
   List<String> _suggested = [];
   bool _busy = false;
 
-  static DateTime get _today {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
+  static DateTime get _today => today();
+
+  DateTime get _day {
+    if (_picked != null && _pickedOn == _today) return _picked!;
+    return _today;
   }
 
   @override
   void initState() {
     super.initState();
+    archiveChanged.addListener(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    archiveChanged.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -45,7 +59,10 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
   }
 
   void _setDay(DateTime day) {
-    setState(() => _day = day);
+    setState(() {
+      _picked = day == _today ? null : day;
+      _pickedOn = _today;
+    });
     _load();
   }
 
@@ -53,7 +70,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _day,
-      firstDate: _today.subtract(const Duration(days: 365)),
+      firstDate: addDays(_today, -365),
       lastDate: _today,
       helpText: 'Data di produzione',
     );
@@ -82,7 +99,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
   }
 
   Widget _dayChip(DateTime d) {
-    final diff = _today.difference(d).inDays;
+    final diff = calendarDays(d, _today);
     final title = diff == 0 ? 'Oggi' : (diff == 1 ? 'Ieri' : weekdays[d.weekday - 1]);
     final selected = d == _day;
     return SizedBox(
@@ -107,7 +124,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final days = [for (var i = 0; i < 7; i++) _today.subtract(Duration(days: i))];
+    final days = [for (var i = 0; i < 7; i++) addDays(_today, -i)];
     final isOther = !days.contains(_day);
     return HeaderScaffold(
       header: NavyHeader(title: 'Etichette', subtitle: 'Lotto interno per un prodotto fatto in cucina'),

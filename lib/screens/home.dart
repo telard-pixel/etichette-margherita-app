@@ -19,16 +19,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
-    // Un'occhiata agli aggiornamenti a ogni avvio, senza disturbare se non ce ne sono.
+    // Un'occhiata agli aggiornamenti a ogni avvio e quando l'app torna in
+    // primo piano: in cucina resta aperta per giorni senza mai ripartire.
     WidgetsBinding.instance.addPostFrameCallback((_) => Updater.offerIfNew(context));
+    _lifecycle = AppLifecycleListener(onResume: () {
+      archiveChanged.value++;
+      if (mounted) Updater.offerIfNew(context, onResume: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   void _goTo(int tab) {
-    if (tab == 0 || tab == 1) archiveChanged.value++;
+    // Ogni volta che si torna su una scheda i dati si rinfrescano (l'app puo'
+    // restare aperta in cucina per giorni).
+    archiveChanged.value++;
     setState(() => _tab = tab);
   }
 

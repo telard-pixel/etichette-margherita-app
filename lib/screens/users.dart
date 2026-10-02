@@ -11,11 +11,17 @@ String lastSeen(String? iso) {
   if (at == null) return '';
   final now = DateTime.now();
   if (now.difference(at).inMinutes < 5) return 'ora';
-  final days = DateTime(now.year, now.month, now.day).difference(DateTime(at.year, at.month, at.day)).inDays;
+  final days = calendarDays(at, now);
   final time = '${two(at.hour)}:${two(at.minute)}';
   if (days == 0) return 'oggi $time';
   if (days == 1) return 'ieri $time';
   return '${two(at.day)}/${two(at.month)}';
+}
+
+/// Il giorno (ora italiana) di un istante UTC del server.
+String _localDay(String? iso) {
+  final at = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
+  return at == null ? '—' : '${two(at.day)}/${two(at.month)}/${at.year}';
 }
 
 /// Amministrazione: chi usa l'app, da quali telefoni, quando e' entrato.
@@ -329,7 +335,7 @@ class _UserScreenState extends State<UserScreen> {
                 MenuRow(
                   icon: Icons.smartphone,
                   title: phones[i]['telefono'] as String? ?? 'telefono',
-                  subtitle: 'Ultimo uso ${lastSeen(phones[i]['ultimo_uso'])} · entrato il ${itDate((phones[i]['entrato_il'] as String?)?.substring(0, 10))}',
+                  subtitle: 'Ultimo uso ${lastSeen(phones[i]['ultimo_uso'])} · entrato il ${_localDay(phones[i]['entrato_il'] as String?)}',
                 ),
               ],
             ]),

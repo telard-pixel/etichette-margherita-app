@@ -182,13 +182,17 @@ class Api {
         var done = 0;
         final sink = target.openWrite();
         try {
-          await for (final chunk in response.stream) {
+          // Se la rete si pianta a meta' non si resta appesi per sempre.
+          await for (final chunk in response.stream.timeout(const Duration(seconds: 30))) {
             sink.add(chunk);
             done += chunk.length;
             onProgress?.call(total != null && total > 0 ? done / total : null);
           }
         } finally {
           await sink.close();
+        }
+        if (total != null && total > 0 && done != total) {
+          throw ApiError(0, 'Download interrotto ($done di $total byte): riprova');
         }
         return target;
       });

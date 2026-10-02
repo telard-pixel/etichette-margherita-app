@@ -54,7 +54,12 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     };
   }
 
+  /// Ogni caricamento ha un numero: vale solo la risposta dell'ultimo, cosi'
+  /// una ricerca lenta ("ri") non copre quella appena scritta ("riso").
+  int _request = 0;
+
   Future<void> _load() async {
+    final request = ++_request;
     try {
       final body = await Api.instance.get('/schede', _query);
       var items = (body['schede'] as List).cast<Map<String, dynamic>>();
@@ -69,7 +74,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       } on ApiError {
         summary = _summary;
       }
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _items = items;
         _summary = summary;
@@ -78,7 +83,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       });
       _schedulePoll();
     } on ApiError catch (e) {
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _error = e.message;
         _loading = false;
@@ -90,7 +95,9 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   void _schedulePoll() {
     _poll?.cancel();
     if (_items.any((s) => s['in_lavorazione'] == true)) {
-      _poll = Timer(const Duration(seconds: 4), _load);
+      // Ogni 5 secondi; se Qwen e' fermo da tempo la scheda resta "in
+      // lettura" a lungo, e non serve chiedere piu' spesso di cosi'.
+      _poll = Timer(const Duration(seconds: 5), _load);
     }
   }
 

@@ -156,11 +156,16 @@ class _MoreScreenState extends State<MoreScreen> {
       close();
       await OpenFilex.open(file.path);
     } on ApiError catch (e) {
-      close();
+      // Con l'accesso scaduto la finestra l'ha gia' chiusa il ritorno alla
+      // schermata di accesso.
+      if (e.status != 401) close();
       if (mounted) toast(context, e.message, error: true);
     } on StateError {
       close();
       if (mounted) toast(context, 'File $extension non trovato', error: true);
+    } catch (e) {
+      close();
+      if (mounted) toast(context, 'Esportazione non riuscita: $e', error: true);
     }
   }
 

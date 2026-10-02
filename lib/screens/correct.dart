@@ -37,11 +37,15 @@ class _CorrectScreenState extends State<CorrectScreen> {
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final current = DateTime.tryParse(_expiry ?? '') ?? now;
+    // Una scadenza letta male (2019, 2099) non deve far chiudere l'app: il
+    // calendario parte da lei, qualunque sia.
+    final first = DateTime(now.year - 3).isBefore(current) ? DateTime(now.year - 3) : DateTime(current.year);
+    final last = DateTime(now.year + 10).isAfter(current) ? DateTime(now.year + 10) : DateTime(current.year + 1);
     final picked = await showDatePicker(
       context: context,
       initialDate: current,
-      firstDate: DateTime(now.year - 3),
-      lastDate: DateTime(now.year + 10),
+      firstDate: first,
+      lastDate: last,
       helpText: 'Scadenza',
     );
     if (picked != null) setState(() => _expiry = isoDay(picked));
@@ -78,12 +82,14 @@ class _CorrectScreenState extends State<CorrectScreen> {
     }
   }
 
-  Widget _field(String label, TextEditingController c, {bool isMono = false}) => Padding(
+  Widget _field(String label, TextEditingController c,
+          {bool isMono = false, TextCapitalization caps = TextCapitalization.sentences}) =>
+      Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SectionLabel(label),
           const SizedBox(height: 6),
-          TextField(controller: c, style: isMono ? mono : null, textCapitalization: TextCapitalization.sentences),
+          TextField(controller: c, style: isMono ? mono : null, textCapitalization: caps),
         ]),
       );
 
@@ -92,7 +98,7 @@ class _CorrectScreenState extends State<CorrectScreen> {
         header: NavyHeader(title: 'Correggi', subtitle: 'Scheda #${widget.s['id']} · ${widget.s['prodotto'] ?? ''}', back: true),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           _field('Prodotto', _product),
-          _field('Lotto', _lot, isMono: true),
+          _field('Lotto', _lot, isMono: true, caps: TextCapitalization.characters),
           const SectionLabel('Scadenza'),
           const SizedBox(height: 6),
           Row(children: [

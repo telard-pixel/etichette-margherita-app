@@ -58,40 +58,62 @@ class _PrintScreenState extends State<PrintScreen> {
 
   bool get _waiting => _job != null && (_job!['stato'] == 'in_attesa' || _job!['stato'] == 'in_stampa');
 
+  /// Cambia a ogni azione: una risposta del controllo periodico partita
+  /// prima di "Annulla" non deve rimettere in pagina il conto alla rovescia.
+  int _generation = 0;
+  bool _sending = false;
+
   Future<void> _print() async {
+    if (_sending) return; // doppio tocco = una sola richiesta
+    setState(() => _sending = true);
     final body = await attempt(context, () => Api.instance.post('/lotti/$_lotId/stampa', {'copie': _copies}));
+    if (mounted) setState(() => _sending = false);
     if (body == null || !mounted) return;
+    _generation++;
     setState(() => _job = body['stampa'] as Map<String, dynamic>);
     _follow();
   }
 
   void _follow() {
     _poll?.cancel();
-    _poll = Timer.periodic(const Duration(seconds: 1), (_) async {
+    final generation = _generation;
+    _poll = Timer(const Duration(seconds: 1), () async {
       final id = _job?['id'];
       if (id == null) return;
       try {
         final body = await Api.instance.get('/stampe/$id');
-        if (!mounted) return;
+        if (!mounted || generation != _generation) return;
         setState(() => _job = body['stampa'] as Map<String, dynamic>);
         if (!_waiting) {
-          _poll?.cancel();
           _announce();
+          return;
         }
       } on ApiError {
         // si riprova al secondo dopo
       }
+      if (mounted && generation == _generation) _follow();
     });
   }
 
   Future<void> _action(String action) async {
     final id = _job?['id'];
-    if (id == null) return;
-    final body = await attempt(context, () => Api.instance.post('/stampe/$id/$action', {}));
-    if (body == null || !mounted) return;
+    if (id == null || _sending) return;
     _poll?.cancel();
+    _generation++;
+    setState(() => _sending = true);
+    final body = await attempt(context, () => Api.instance.post('/stampe/$id/$action', {}));
+    if (!mounted) return;
+    setState(() => _sending = false);
+    if (body == null) {
+      _follow(); // azione non riuscita: si torna a seguire la stampa
+      return;
+    }
     setState(() => _job = body['stampa'] as Map<String, dynamic>);
-    _announce();
+    if (_waiting) {
+      _follow();
+    } else {
+      _announce();
+    }
   }
 
   void _announce() {
@@ -177,7 +199,7 @@ class _PrintScreenState extends State<PrintScreen> {
           const SizedBox(height: 20),
           if (_waiting) _queueCard() else
             FilledButton.icon(
-              onPressed: _png == null ? null : _print,
+              onPressed: _png == null || _sending ? null : _print,
               icon: const Icon(Icons.print),
               label: Text(_copies == 1 ? 'Stampa' : 'Stampa $_copies copie'),
             ),
@@ -217,21 +239,21 @@ class _PrintScreenState extends State<PrintScreen> {
           Expanded(
             child: FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: C.badFg),
-              onPressed: printing ? null : () => _action('annulla'),
+              onPressed: printing || _sending ? null : () => _action('annulla'),
               child: const Text('Annulla'),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: FilledButton(
-              onPressed: printing ? null : () => _action('ora'),
+              onPressed: printing || _sending ? null : () => _action('ora'),
               child: const Text('Stampa ora'),
             ),
           ),
         ]),
         const SizedBox(height: 8),
         TextButton(
-          onPressed: printing ? null : _print,
+          onPressed: printing || _sending ? null : _print,
           style: TextButton.styleFrom(foregroundColor: Colors.white),
           child: Text('Aggiungi altre $_copies'),
         ),

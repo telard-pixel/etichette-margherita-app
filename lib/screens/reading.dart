@@ -25,7 +25,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   void initState() {
     super.initState();
     archiveChanged.value++;
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) => _check());
+    _next();
   }
 
   @override
@@ -34,20 +34,26 @@ class _ReadingScreenState extends State<ReadingScreen> {
     super.dispose();
   }
 
+  /// Una domanda alla volta: con la rete lenta le risposte non si
+  /// accavallano e la scheda si apre una volta sola.
+  void _next() => _timer = Timer(const Duration(seconds: 3), _check);
+
   Future<void> _check() async {
     _checks++;
-    if (_checks > 40 && !_slow) setState(() => _slow = true); // oltre 2 minuti
+    if (_checks > 40 && !_slow && mounted) setState(() => _slow = true); // oltre 2 minuti
     try {
       final body = await Api.instance.get('/schede/${widget.itemId}');
       final s = body['scheda'] as Map<String, dynamic>;
-      if (s['in_lavorazione'] != true && mounted) {
-        _timer?.cancel();
+      if (!mounted) return;
+      if (s['in_lavorazione'] != true) {
         archiveChanged.value++;
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ItemScreen(widget.itemId)));
+        return;
       }
     } on ApiError {
       // senza rete si riprova al giro dopo
     }
+    if (mounted) _next();
   }
 
   Widget _step(String title, String detail, {required bool done, required bool running}) {

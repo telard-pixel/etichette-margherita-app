@@ -56,24 +56,38 @@ class _CaptureScreenState extends State<CaptureScreen> {
     }
   }
 
+  /// La scheda gia' creata dal primo invio e quante foto sono gia' arrivate:
+  /// se la seconda foto non passa (rete in cucina), "Invia" riprende da li'
+  /// invece di creare una scheda doppia con la prima foto.
+  int? _sentItem;
+  int _sentCount = 0;
+
   Future<void> _send() async {
     setState(() {
       _sending = true;
-      _progress = 'Invio foto 1 di ${_photos.length}…';
+      _progress = 'Invio foto ${_sentCount + 1} di ${_photos.length}…';
     });
     try {
-      final first = await Api.instance.uploadPhoto('/foto', _photos.first, caption: _caption.text);
-      final itemId = first['scheda'] as int;
-      for (var i = 1; i < _photos.length; i++) {
-        setState(() => _progress = 'Invio foto ${i + 1} di ${_photos.length}…');
-        await Api.instance.uploadPhoto('/schede/$itemId/foto', _photos[i]);
+      Object? twin;
+      if (_sentItem == null) {
+        final first = await Api.instance.uploadPhoto('/foto', _photos.first, caption: _caption.text);
+        _sentItem = first['scheda'] as int;
+        _sentCount = 1;
+        twin = first['stessa_foto_di'];
       }
-      final twin = first['stessa_foto_di'];
+      final itemId = _sentItem!;
+      while (_sentCount < _photos.length) {
+        setState(() => _progress = 'Invio foto ${_sentCount + 1} di ${_photos.length}…');
+        await Api.instance.uploadPhoto('/schede/$itemId/foto', _photos[_sentCount]);
+        _sentCount++;
+      }
       final count = _photos.length;
       setState(() {
         _photos.clear();
         _caption.clear();
         _sending = false;
+        _sentItem = null;
+        _sentCount = 0;
       });
       if (!mounted) return;
       if (twin != null) toast(context, 'Attenzione: questa foto era già stata inviata (scheda #$twin)');
@@ -84,7 +98,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
       if (again != true) widget.onSent();
     } on ApiError catch (e) {
       setState(() => _sending = false);
-      if (mounted) toast(context, 'Non inviata: ${e.message}. Le foto restano qui, riprova.', error: true);
+      if (!mounted) return;
+      final partial = _sentItem != null
+          ? ' La scheda #$_sentItem è già creata con $_sentCount foto: "Invia" manda solo le altre.'
+          : ' Le foto restano qui, riprova.';
+      toast(context, 'Non inviata: ${e.message}.$partial', error: true);
     }
   }
 
@@ -120,7 +138,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     return Stack(children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_photos[i], width: 190, height: 260, fit: BoxFit.cover),
+                        child: Image.file(_photos[i], width: 190, height: 260, fit: BoxFit.cover, cacheWidth: 400),
                       ),
                       Positioned(
                         right: 6,
@@ -128,7 +146,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         child: IconButton.filled(
                           tooltip: 'Togli questa foto',
                           style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                          onPressed: _sending ? null : () => setState(() => _photos.removeAt(i)),
+                          onPressed: _sending || i < _sentCount ? null : () => setState(() => _photos.removeAt(i)),
                           icon: const Icon(Icons.close, color: Colors.white),
                         ),
                       ),

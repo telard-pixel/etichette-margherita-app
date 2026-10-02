@@ -20,11 +20,17 @@ class UpdateInfo {
 /// Aggiornamento dell'app: la CI carica ogni nuova APK sul server, l'app la
 /// scarica da li' (con l'accesso dell'utente) e la fa installare ad Android.
 class Updater {
-  static bool _offered = false;
+  /// L'ultima versione gia' proposta e quando si e' controllato: la stessa
+  /// versione si propone una volta sola, ma una piu' nuova si propone anche
+  /// se l'app e' rimasta aperta per giorni.
+  static int? _offeredBuild;
+  static DateTime? _lastCheck;
+  static bool _installing = false;
 
   static Future<UpdateInfo> check() async {
     final info = await PackageInfo.fromPlatform();
     final body = await Api.instance.get('/version');
+    _lastCheck = DateTime.now();
     return UpdateInfo(
       info.version,
       int.tryParse(info.buildNumber) ?? 0,
@@ -33,17 +39,19 @@ class Updater {
     );
   }
 
-  /// All'avvio: se c'e' una versione nuova la propone, una volta sola.
-  static Future<void> offerIfNew(BuildContext context) async {
-    if (_offered) return;
-    _offered = true;
+  /// All'avvio e quando l'app torna in primo piano (al massimo ogni ora):
+  /// se c'e' una versione nuova la propone.
+  static Future<void> offerIfNew(BuildContext context, {bool onResume = false}) async {
+    if (_installing) return;
+    if (onResume && _lastCheck != null && DateTime.now().difference(_lastCheck!) < const Duration(hours: 1)) return;
     UpdateInfo info;
     try {
       info = await check();
     } catch (_) {
       return;
     }
-    if (!info.available || !context.mounted) return;
+    if (!info.available || info.latestBuild == _offeredBuild || !context.mounted) return;
+    _offeredBuild = info.latestBuild;
     final yes = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -59,7 +67,11 @@ class Updater {
   }
 
   static Future<void> install(BuildContext context) async {
+    if (_installing) return;
+    _installing = true;
     final progress = ValueNotifier<double?>(null);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    var dialogOpen = true;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -67,25 +79,45 @@ class Updater {
         title: const Text('Scarico l\'aggiornamento…'),
         content: ValueListenableBuilder<double?>(
           valueListenable: progress,
-          builder: (context, value, _) => LinearProgressIndicator(value: value),
+          builder: (context, value, _) => Column(mainAxisSize: MainAxisSize.min, children: [
+            LinearProgressIndicator(value: value),
+            if (value != null) ...[
+              const SizedBox(height: 8),
+              Text('${(value * 100).round()}%'),
+            ],
+          ]),
         ),
       ),
     );
+    void closeDialog() {
+      if (dialogOpen) {
+        dialogOpen = false;
+        navigator.pop();
+      }
+    }
+
+    String? problem;
     try {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/EtichetteMargherita.apk');
       if (await file.exists()) await file.delete();
       await Api.instance.download('/apk', file, onProgress: (v) => progress.value = v);
-      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      closeDialog();
       final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
-      if (result.type != ResultType.done && context.mounted) {
-        toast(context, 'Installazione non avviata: ${result.message}', error: true);
-      }
+      if (result.type != ResultType.done) problem = 'Installazione non avviata: ${result.message}';
     } on ApiError catch (e) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        toast(context, 'Download non riuscito: ${e.message}', error: true);
-      }
+      // Accesso scaduto: l'app e' gia' tornata alla schermata di accesso e
+      // ha chiuso anche questa finestra; un altro "indietro" chiuderebbe quella.
+      if (e.status == 401) dialogOpen = false;
+      problem = 'Download non riuscito: ${e.message}';
+    } catch (e) {
+      // Qualunque altro errore (memoria piena, permessi): la finestra non
+      // deve restare aperta per sempre.
+      problem = 'Aggiornamento non riuscito: $e';
+    } finally {
+      closeDialog();
+      _installing = false;
     }
+    if (problem != null && context.mounted) toast(context, problem, error: true);
   }
 }

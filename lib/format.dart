@@ -15,16 +15,29 @@ String isoDay(DateTime d) => '${d.year}-${two(d.month)}-${two(d.day)}';
 
 const weekdays = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'];
 
+/// Giorni di calendario fra due date, senza farsi ingannare dall'ora
+/// legale: in ora locale il giorno del cambio dura 23 o 25 ore e
+/// `difference().inDays` sbaglia di uno. In UTC ogni giorno dura 24 ore.
+int calendarDays(DateTime from, DateTime to) =>
+    DateTime.utc(to.year, to.month, to.day).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
+
+/// Oggi a mezzanotte (ora locale).
+DateTime today() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+}
+
+/// Un giorno di calendario prima/dopo, sempre a mezzanotte (aggiungere
+/// `Duration(days: 1)` a un orario locale sbaglia nei giorni del cambio d'ora).
+DateTime addDays(DateTime day, int days) => DateTime(day.year, day.month, day.day + days);
+
 /// "Oggi 09:41", "Ieri 17:30", "28/09 11:05".
 String whenArrived(String? iso) {
   if (iso == null) return '';
   final at = DateTime.tryParse(iso)?.toLocal();
   if (at == null) return '';
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final day = DateTime(at.year, at.month, at.day);
   final time = '${two(at.hour)}:${two(at.minute)}';
-  final diff = today.difference(day).inDays;
+  final diff = calendarDays(at, DateTime.now());
   if (diff == 0) return 'Oggi $time';
   if (diff == 1) return 'Ieri $time';
   return '${two(at.day)}/${two(at.month)} $time';
@@ -35,8 +48,7 @@ int? daysTo(String? iso) {
   if (iso == null) return null;
   final d = DateTime.tryParse(iso);
   if (d == null) return null;
-  final now = DateTime.now();
-  return DateTime(d.year, d.month, d.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+  return calendarDays(DateTime.now(), d);
 }
 
 String daysLabel(int days) {
