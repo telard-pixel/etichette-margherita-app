@@ -325,12 +325,13 @@ const divider = Divider(height: 1, thickness: 1, color: C.line);
 final Map<String, Uint8List> _photoCache = {};
 final Map<String, Future<Uint8List>> _photoLoading = {};
 
-Future<Uint8List> _loadPhoto(int itemId, bool mini) {
-  final key = '$itemId:${mini ? 'm' : 'f'}';
+Future<Uint8List> _loadPhoto(int itemId, bool mini, int? extraId) {
+  final key = '$itemId:${extraId ?? 0}:${mini ? 'm' : 'f'}';
   final cached = _photoCache[key];
   if (cached != null) return Future.value(cached);
+  final path = extraId == null ? '/schede/$itemId/foto' : '/schede/$itemId/foto/$extraId';
   return _photoLoading[key] ??= Api.instance
-      .bytes('/schede/$itemId/foto', mini ? {'mini': '1'} : null)
+      .bytes(path, mini ? {'mini': '1'} : null)
       .then((data) {
     final bytes = Uint8List.fromList(data);
     if (_photoCache.length >= 120) _photoCache.remove(_photoCache.keys.first);
@@ -341,16 +342,17 @@ Future<Uint8List> _loadPhoto(int itemId, bool mini) {
 
 /// Dimentica le foto di una scheda (foto aggiunta, scheda riletta).
 void forgetItemPhoto(int itemId) {
-  _photoCache.remove('$itemId:m');
-  _photoCache.remove('$itemId:f');
+  _photoCache.removeWhere((key, _) => key.startsWith('$itemId:'));
 }
 
 /// Foto di una scheda dal server (con l'accesso dell'utente). Scaricata
 /// dall'app e mostrata dalla memoria: cosi' vale anche nel browser, dove
 /// un'immagine con l'intestazione di accesso non sempre si carica.
 class ItemPhoto extends StatelessWidget {
-  const ItemPhoto(this.itemId, {super.key, this.mini = false, this.fit = BoxFit.cover, this.cacheWidth});
+  const ItemPhoto(this.itemId, {super.key, this.mini = false, this.fit = BoxFit.cover, this.cacheWidth, this.extraId});
   final int itemId;
+  /// Una delle foto in piu' della scheda (coperchio, retro), o la principale se null.
+  final int? extraId;
   final bool mini;
   final BoxFit fit;
   /// Larghezza a cui decodificare: una foto da 2400 px in un riquadro alto
@@ -358,7 +360,7 @@ class ItemPhoto extends StatelessWidget {
   final int? cacheWidth;
   @override
   Widget build(BuildContext context) => FutureBuilder<Uint8List>(
-        future: _loadPhoto(itemId, mini),
+        future: _loadPhoto(itemId, mini, extraId),
         builder: (context, snapshot) {
           if (snapshot.hasError) return const PhotoPlaceholder(icon: Icons.image_not_supported_outlined);
           final data = snapshot.data;

@@ -118,15 +118,13 @@ class _ItemScreenState extends State<ItemScreen> {
     }
   }
 
-  void _openPhoto() => Navigator.push(
+  /// La foto principale e quelle in piu' (coperchio, retro...): si sfogliano.
+  List<int?> get _photoIds => [null, ...((_s?['foto_extra'] as List?) ?? []).cast<int>()];
+  int _photoPage = 0;
+
+  void _openPhoto(int index) => Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => Scaffold(
-            backgroundColor: Colors.black,
-            appBar: AppBar(backgroundColor: Colors.black),
-            body: InteractiveViewer(maxScale: 6, child: Center(child: ItemPhoto(widget.itemId, fit: BoxFit.contain))),
-          ),
-        ),
+        MaterialPageRoute<void>(builder: (_) => PhotoGallery(itemId: widget.itemId, ids: _photoIds, initial: index)),
       );
 
   /// Salva uno o piu' campi (come /correggi: ogni modifica resta registrata
@@ -261,7 +259,14 @@ class _ItemScreenState extends State<ItemScreen> {
           SizedBox(
             height: 270 + top,
             child: Stack(fit: StackFit.expand, children: [
-              GestureDetector(onTap: _openPhoto, child: ItemPhoto(widget.itemId, cacheWidth: 1200)),
+              PageView.builder(
+                itemCount: _photoIds.length,
+                onPageChanged: (page) => setState(() => _photoPage = page),
+                itemBuilder: (context, i) => GestureDetector(
+                  onTap: () => _openPhoto(i),
+                  child: ItemPhoto(widget.itemId, extraId: _photoIds[i], cacheWidth: 1200),
+                ),
+              ),
               Positioned(
                 top: top + 12,
                 left: 16,
@@ -273,12 +278,31 @@ class _ItemScreenState extends State<ItemScreen> {
                 ),
               ),
               Positioned(top: top + 12, right: 16, child: _menu()),
-              if ((s['foto_aggiuntive'] ?? 0) > 0)
+              if (_photoIds.length > 1) ...[
+                // Quante foto e quale si sta guardando: si sfogliano col dito.
                 Positioned(
                   right: 16,
                   bottom: 34,
-                  child: Pill('+${s['foto_aggiuntive']} foto', bg: const Color(0x990F1B2D), fg: Colors.white),
+                  child: Pill('${_photoPage + 1} / ${_photoIds.length} · scorri', bg: const Color(0x990F1B2D), fg: Colors.white),
                 ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 38,
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    for (var i = 0; i < _photoIds.length; i++)
+                      Container(
+                        width: i == _photoPage ? 18 : 7,
+                        height: 7,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: i == _photoPage ? Colors.white : Colors.white54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                  ]),
+                ),
+              ],
             ]),
           ),
           Transform.translate(
@@ -406,5 +430,46 @@ class _InternalLotCard extends StatelessWidget {
           ),
           Text('Prod. ${itDate(lot['data_produzione'])}', style: const TextStyle(fontSize: 12, color: C.onNavyMuted)),
         ]),
+      );
+}
+
+
+/// Le foto della scheda a tutto schermo: si sfogliano col dito e si
+/// ingrandiscono con due dita.
+class PhotoGallery extends StatefulWidget {
+  const PhotoGallery({super.key, required this.itemId, required this.ids, this.initial = 0});
+  final int itemId;
+  final List<int?> ids;
+  final int initial;
+  @override
+  State<PhotoGallery> createState() => _PhotoGalleryState();
+}
+
+class _PhotoGalleryState extends State<PhotoGallery> {
+  late final _controller = PageController(initialPage: widget.initial);
+  late int _page = widget.initial;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          title: Text(widget.ids.length > 1 ? 'Foto ${_page + 1} di ${widget.ids.length}' : 'Foto'),
+        ),
+        body: PageView.builder(
+          controller: _controller,
+          itemCount: widget.ids.length,
+          onPageChanged: (page) => setState(() => _page = page),
+          itemBuilder: (context, i) => InteractiveViewer(
+            maxScale: 6,
+            child: Center(child: ItemPhoto(widget.itemId, extraId: widget.ids[i], fit: BoxFit.contain)),
+          ),
+        ),
       );
 }
