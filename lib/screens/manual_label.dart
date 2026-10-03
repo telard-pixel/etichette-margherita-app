@@ -4,6 +4,7 @@ import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
 import 'home.dart';
+import 'ingredients.dart';
 import 'print.dart';
 
 /// Come /etichetta: un lotto interno per un prodotto fatto in cucina, con la
@@ -23,7 +24,20 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
   DateTime? _pickedOn;
   List<Map<String, dynamic>> _lots = [];
   List<String> _suggested = [];
+  final List<Ingredient> _ingredients = [];
   bool _busy = false;
+
+  static const _maxIngredients = 10;
+
+  Future<void> _addIngredient() async {
+    final picked = await pickIngredient(context);
+    if (picked == null || !mounted) return;
+    if (picked.itemId != null && _ingredients.any((i) => i.itemId == picked.itemId)) {
+      toast(context, 'Ingrediente già aggiunto', error: true);
+      return;
+    }
+    setState(() => _ingredients.add(picked));
+  }
 
   static DateTime get _today => today();
 
@@ -89,12 +103,17 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
       return;
     }
     setState(() => _busy = true);
-    final body = await attempt(context, () => Api.instance.post('/lotti', {'data': isoDay(_day), 'prodotto': product}));
+    final body = await attempt(context, () => Api.instance.post('/lotti', {
+          'data': isoDay(_day),
+          'prodotto': product,
+          if (_ingredients.isNotEmpty) 'ingredienti': [for (final i in _ingredients) i.toJson()],
+        }));
     if (!mounted) return;
     setState(() => _busy = false);
     if (body == null) return;
     final lot = body['lotto_interno'] as Map<String, dynamic>;
     _product.clear();
+    _ingredients.clear();
     _load();
     if (print) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => PrintScreen(lot)));
@@ -178,6 +197,38 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
             ]),
           ],
           const SizedBox(height: 18),
+          const SectionLabel('Ingredienti (facoltativo)'),
+          const SizedBox(height: 4),
+          const Text('Per le preparazioni: i lotti degli ingredienti vengono stampati sull\'etichetta.',
+              style: TextStyle(fontSize: 12.5, color: C.muted)),
+          const SizedBox(height: 8),
+          if (_ingredients.isNotEmpty)
+            Panel(
+              padding: EdgeInsets.zero,
+              child: Column(children: [
+                for (final (index, ing) in _ingredients.indexed)
+                  ListTile(
+                    dense: true,
+                    leading: Icon(ing.itemId != null ? Icons.inventory_2_outlined : Icons.edit_outlined, color: C.muted, size: 20),
+                    title: Text(ing.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15)),
+                    subtitle: Text(ing.lot ?? 'senza lotto', style: mono.copyWith(fontSize: 13, color: C.muted)),
+                    trailing: IconButton(
+                      tooltip: 'Togli',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setState(() => _ingredients.removeAt(index)),
+                    ),
+                  ),
+              ]),
+            ),
+          if (_ingredients.length < _maxIngredients) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _addIngredient,
+              icon: const Icon(Icons.add),
+              label: const Text('Aggiungi ingrediente'),
+            ),
+          ],
+          const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _busy ? null : () => _create(print: true),
             icon: const Icon(Icons.print),
@@ -199,7 +250,8 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
                 for (final lot in _lots.reversed)
                   ListTile(
                     title: Text(lot['prodotto'] ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${lot['codice']} · ${lot['operatore'] ?? ''}', style: mono.copyWith(fontSize: 13, color: C.muted)),
+                    subtitle: Text('${lot['codice']} · ${lot['operatore'] ?? ''}'
+                        '${(lot['ingredienti'] as List? ?? []).isNotEmpty ? ' · ${(lot['ingredienti'] as List).length} ingredienti' : ''}', style: mono.copyWith(fontSize: 13, color: C.muted)),
                     trailing: const Icon(Icons.print_outlined),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PrintScreen(lot))),
                   ),
