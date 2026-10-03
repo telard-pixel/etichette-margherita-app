@@ -462,8 +462,11 @@ class HeaderScaffold extends StatelessWidget {
   final Widget body;
   final Widget? bottom;
   @override
+  // SafeArea in basso: senza, l'ultima riga (es. un tasto) finiva sotto i
+  // tasti di sistema di Android/iPhone e non si poteva toccare (3/10/2026).
+  // Nelle schede del menu in basso il bordo l'ha gia' tolto il menu stesso.
   Widget build(BuildContext context) => Scaffold(
-        body: Column(children: [header, Expanded(child: body)]),
+        body: Column(children: [header, Expanded(child: SafeArea(top: false, child: body))]),
         bottomNavigationBar: bottom,
       );
 }

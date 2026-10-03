@@ -253,9 +253,14 @@ class _ItemScreenState extends State<ItemScreen> {
       );
     }
     return Scaffold(
-      body: RefreshIndicator(
+      // Una fascia scura sotto l'orologio: scorrendo, la foto non finisce
+      // sotto le icone di stato del telefono (3/10/2026).
+      body: Stack(children: [
+        RefreshIndicator(
         onRefresh: _load,
-        child: ListView(padding: EdgeInsets.zero, children: [
+        // In fondo lo spazio dei tasti di sistema: "Stampa etichetta" restava
+        // sotto la barra di Android (3/10/2026).
+        child: ListView(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 24), children: [
           SizedBox(
             height: 270 + top,
             child: Stack(fit: StackFit.expand, children: [
@@ -390,6 +395,14 @@ class _ItemScreenState extends State<ItemScreen> {
           ),
         ]),
       ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: MediaQuery.of(context).padding.top,
+          child: const ColoredBox(color: Color(0xCC0F1B2D)),
+        ),
+      ]),
     );
   }
 
