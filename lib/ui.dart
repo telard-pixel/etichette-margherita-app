@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'api.dart';
+import 'platform/platform.dart' show readPhotoCache, writePhotoCache, forgetPhotoCache;
 
 /// Colori e forme dell'anteprima approvata (versione 2): blu notte, accento
 /// blu, schede bianche con ombra leggera al posto dei bordi.
@@ -320,60 +321,132 @@ class MenuRow extends StatelessWidget {
 
 const divider = Divider(height: 1, thickness: 1, color: C.line);
 
+/// Misure di una foto: miniatura (elenco), media (scheda e galleria, poche
+/// centinaia di KB invece dei 3 MB dell'originale) e originale (solo quando
+/// si ingrandisce nella galleria). Il server le prepara una volta sola.
+enum PhotoSize { mini, media, full }
+
 /// Foto gia' scaricate, per non riscaricarle a ogni scorrimento dell'elenco.
-/// Al massimo 120 (le miniature pesano pochi KB, le foto intere di piu').
+/// In memoria al massimo 150; sul telefono restano anche su disco.
 final Map<String, Uint8List> _photoCache = {};
 final Map<String, Future<Uint8List>> _photoLoading = {};
 
-Future<Uint8List> _loadPhoto(int itemId, bool mini, int? extraId) {
-  final key = '$itemId:${extraId ?? 0}:${mini ? 'm' : 'f'}';
+Future<Uint8List> _loadPhoto(int itemId, PhotoSize size, int? extraId) {
+  final key = '$itemId:${extraId ?? 0}:${size.name}';
   final cached = _photoCache[key];
   if (cached != null) return Future.value(cached);
-  final path = extraId == null ? '/schede/$itemId/foto' : '/schede/$itemId/foto/$extraId';
-  return _photoLoading[key] ??= Api.instance
-      .bytes(path, mini ? {'mini': '1'} : null)
-      .then((data) {
-    final bytes = Uint8List.fromList(data);
-    if (_photoCache.length >= 120) _photoCache.remove(_photoCache.keys.first);
+  return _photoLoading[key] ??= () async {
+    final saved = await readPhotoCache(key);
+    final List<int> data;
+    if (saved != null) {
+      data = saved;
+    } else {
+      final path = extraId == null ? '/schede/$itemId/foto' : '/schede/$itemId/foto/$extraId';
+      data = await Api.instance.bytes(path, switch (size) {
+        PhotoSize.mini => {'mini': '1'},
+        PhotoSize.media => {'media': '1'},
+        PhotoSize.full => null,
+      });
+      writePhotoCache(key, data);
+    }
+    final bytes = data is Uint8List ? data : Uint8List.fromList(data);
+    if (_photoCache.length >= 150) _photoCache.remove(_photoCache.keys.first);
     _photoCache[key] = bytes;
     return bytes;
-  }).whenComplete(() => _photoLoading.remove(key));
+  }().whenComplete(() => _photoLoading.remove(key));
 }
+
+/// Gia' scaricata in questa misura? (Per mostrarla subito, senza attesa.)
+Uint8List? _photoNow(int itemId, PhotoSize size, int? extraId) => _photoCache['$itemId:${extraId ?? 0}:${size.name}'];
 
 /// Dimentica le foto di una scheda (foto aggiunta, scheda riletta).
 void forgetItemPhoto(int itemId) {
   _photoCache.removeWhere((key, _) => key.startsWith('$itemId:'));
+  forgetPhotoCache('$itemId:');
 }
 
 /// Foto di una scheda dal server (con l'accesso dell'utente). Scaricata
 /// dall'app e mostrata dalla memoria: cosi' vale anche nel browser, dove
 /// un'immagine con l'intestazione di accesso non sempre si carica.
-class ItemPhoto extends StatelessWidget {
-  const ItemPhoto(this.itemId, {super.key, this.mini = false, this.fit = BoxFit.cover, this.cacheWidth, this.extraId});
+///
+/// Con [sharpen] (galleria a schermo intero) mostra subito la versione
+/// media e intanto scarica l'originale, che la sostituisce appena arriva:
+/// si vede subito, e ingrandendo si leggono anche le scritte piccole.
+class ItemPhoto extends StatefulWidget {
+  const ItemPhoto(this.itemId,
+      {super.key, this.size = PhotoSize.media, this.fit = BoxFit.cover, this.cacheWidth, this.extraId, this.sharpen = false});
   final int itemId;
   /// Una delle foto in piu' della scheda (coperchio, retro), o la principale se null.
   final int? extraId;
-  final bool mini;
+  final PhotoSize size;
   final BoxFit fit;
+  final bool sharpen;
   /// Larghezza a cui decodificare: una foto da 2400 px in un riquadro alto
   /// 270 sono ~17 MB di memoria per niente sui telefoni economici.
   final int? cacheWidth;
   @override
-  Widget build(BuildContext context) => FutureBuilder<Uint8List>(
-        future: _loadPhoto(itemId, mini, extraId),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return const PhotoPlaceholder(icon: Icons.image_not_supported_outlined);
-          final data = snapshot.data;
-          if (data == null) return const PhotoPlaceholder();
-          return Image.memory(
-            data,
-            fit: fit,
-            cacheWidth: cacheWidth,
-            gaplessPlayback: true,
-            errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Icons.image_not_supported_outlined),
-          );
-        },
-      );
+  State<ItemPhoto> createState() => _ItemPhotoState();
+}
+
+class _ItemPhotoState extends State<ItemPhoto> {
+  Uint8List? _data;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(ItemPhoto old) {
+    super.didUpdateWidget(old);
+    if (old.itemId != widget.itemId || old.extraId != widget.extraId || old.size != widget.size) {
+      _data = null;
+      _failed = false;
+      _start();
+    }
+  }
+
+  String get _key => '${widget.itemId}:${widget.extraId}:${widget.size.name}:${widget.sharpen}';
+
+  void _start() {
+    final w = widget;
+    final key = _key;
+    _data = _photoNow(w.itemId, w.size, w.extraId);
+    if (_data == null) {
+      _loadPhoto(w.itemId, w.size, w.extraId).then((d) {
+        if (mounted && key == _key) setState(() => _data ??= d);
+      }, onError: (_) {
+        if (mounted && key == _key && _data == null) setState(() => _failed = true);
+      });
+    }
+    if (w.sharpen && w.size != PhotoSize.full) {
+      final sharp = _photoNow(w.itemId, PhotoSize.full, w.extraId);
+      if (sharp != null) {
+        _data = sharp;
+      } else {
+        _loadPhoto(w.itemId, PhotoSize.full, w.extraId).then((d) {
+          if (mounted && key == _key) setState(() => _data = d);
+        }, onError: (_) {});
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    if (data == null) {
+      return PhotoPlaceholder(icon: _failed ? Icons.image_not_supported_outlined : Icons.image_outlined);
+    }
+    return Image.memory(
+      data,
+      fit: widget.fit,
+      cacheWidth: widget.cacheWidth,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Icons.image_not_supported_outlined),
+    );
+  }
 }
 
 class PhotoPlaceholder extends StatelessWidget {

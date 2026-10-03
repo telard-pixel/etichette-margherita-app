@@ -62,3 +62,11 @@ void onBrowserBack(void Function() back) {
 
 /// Nel browser non c'e' niente da installare: la pagina si aggiorna da sola.
 Future<String?> installApk(List<int> bytes) async => 'Nella versione web l\'app si aggiorna da sola';
+
+/// Nel browser ci pensa la sua cache (le foto arrivano con ETag e
+/// Cache-Control): qui non serve salvarle a parte.
+Future<List<int>?> readPhotoCache(String key) async => null;
+
+Future<void> writePhotoCache(String key, List<int> bytes) async {}
+
+Future<void> forgetPhotoCache(String prefix) async {}

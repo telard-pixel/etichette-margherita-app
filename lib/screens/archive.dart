@@ -331,7 +331,7 @@ class ItemTile extends StatelessWidget {
         Stack(children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(width: 72, height: 72, child: ItemPhoto(s['id'] as int, mini: true)),
+            child: SizedBox(width: 72, height: 72, child: ItemPhoto(s['id'] as int, size: PhotoSize.mini, cacheWidth: 216)),
           ),
           if (selecting)
             Positioned(

@@ -481,7 +481,7 @@ class _PhotoGalleryState extends State<PhotoGallery> {
           onPageChanged: (page) => setState(() => _page = page),
           itemBuilder: (context, i) => InteractiveViewer(
             maxScale: 6,
-            child: Center(child: ItemPhoto(widget.itemId, extraId: widget.ids[i], fit: BoxFit.contain)),
+            child: Center(child: ItemPhoto(widget.itemId, extraId: widget.ids[i], fit: BoxFit.contain, sharpen: true)),
           ),
         ),
       );

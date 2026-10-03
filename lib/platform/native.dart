@@ -57,3 +57,50 @@ Future<String?> installApk(List<int> bytes) async {
   }
   return 'Installazione non avviata: ${result.message}';
 }
+
+/// Foto delle schede salvate sul telefono (3/10/2026): riaprendo l'app non
+/// si riscaricano. Una foto archiviata non cambia mai; le piu' vecchie oltre
+/// le 600 si cancellano.
+Directory? _photoDir;
+
+Future<Directory> _photos() async =>
+    _photoDir ??= await Directory('${(await getTemporaryDirectory()).path}/foto').create(recursive: true);
+
+String _photoName(String key) => key.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+
+Future<List<int>?> readPhotoCache(String key) async {
+  try {
+    final file = File('${(await _photos()).path}/${_photoName(key)}');
+    return await file.exists() ? await file.readAsBytes() : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+int _photoWrites = 0;
+
+Future<void> writePhotoCache(String key, List<int> bytes) async {
+  try {
+    final dir = await _photos();
+    await File('${dir.path}/${_photoName(key)}').writeAsBytes(bytes, flush: false);
+    if (++_photoWrites % 50 == 0) {
+      final files = dir.listSync().whereType<File>().toList()
+        ..sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+      for (final old in files.take(files.length > 600 ? files.length - 600 : 0)) {
+        old.deleteSync();
+      }
+    }
+  } catch (_) {
+    // la cache e' solo un aiuto
+  }
+}
+
+Future<void> forgetPhotoCache(String prefix) async {
+  try {
+    final dir = await _photos();
+    final start = _photoName(prefix);
+    for (final f in dir.listSync().whereType<File>()) {
+      if (f.uri.pathSegments.last.startsWith(start)) f.deleteSync();
+    }
+  } catch (_) {}
+}
