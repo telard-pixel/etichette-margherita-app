@@ -1,45 +1,52 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'api.dart';
 import 'platform/platform.dart' show readPhotoCache, writePhotoCache, forgetPhotoCache;
 
-/// Colori e forme dell'anteprima approvata (versione 2): blu notte, accento
-/// blu, schede bianche con ombra leggera al posto dei bordi.
+/// Colori e forme dell'anteprima approvata (versione 3, 4/10/2026): fondo
+/// bianco caldo, inchiostro blu notte, accento beige sabbia; schede bianche
+/// con un bordo sottile (piu' leggero da disegnare di un'ombra).
 class C {
-  static const navy = Color(0xFF0F1B2D);
-  static const ground = Color(0xFFF4F6F9);
-  static const line = Color(0xFFEDF0F4);
-  static const border = Color(0xFFD3DAE3);
-  static const muted = Color(0xFF5A6577);
-  static const faint = Color(0xFF9AA6B8);
-  static const onNavyMuted = Color(0xFFA9B6CA);
-  static const blue = Color(0xFF1F5FD1);
-  static const softBlue = Color(0xFF8FB1F0);
-  static const chipBg = Color(0xFFEEF1F5);
-  static const okBg = Color(0xFFE3F4EA), okFg = Color(0xFF17663A);
-  static const warnBg = Color(0xFFFDF0DC), warnFg = Color(0xFF8A4204);
-  static const badBg = Color(0xFFFBE4E2), badFg = Color(0xFFA12A21);
-  static const infoBg = Color(0xFFE4ECFB), infoFg = Color(0xFF1A4FB0);
+  /// Inchiostro: testi, chip scelte, riquadri scuri (lotto interno).
+  static const navy = Color(0xFF1B2333);
+  static const ground = Color(0xFFF6F5F2);
+  static const line = Color(0xFFEFECE6);
+  static const border = Color(0xFFE2DED6);
+  static const cardBorder = Color(0xFFECE9E3);
+  static const muted = Color(0xFF626B7A);
+  static const faint = Color(0xFF9AA0AA);
+  static const onNavyMuted = Color(0xFFA9B2C3);
+  /// Accento come testo, icona o bordo sul chiaro: nocciola, leggibile.
+  static const blue = Color(0xFF8C6239);
+  /// Accento sui riquadri scuri.
+  static const accentOnDark = Color(0xFFE6D3B3);
+  /// Beige sabbia dei tasti pieni (Scatta, Stampa): sopra va l'inchiostro.
+  static const sand = Color(0xFFD9C4A3);
+  static const sandSoft = Color(0xFFEFE4D2);
+  static const sandText = Color(0xFF7A5A2E);
+  static const chipBg = Color(0xFFF2F0EB);
+  static const okBg = Color(0xFFE4F2E9), okFg = Color(0xFF1F6B41);
+  static const warnBg = Color(0xFFFDF1DE), warnFg = Color(0xFF8A4A00);
+  static const badBg = Color(0xFFFCE7E2), badFg = Color(0xFFA3301B);
+  static const infoBg = Color(0xFFE8EDF6), infoFg = Color(0xFF2D4A80);
   static const green = Color(0xFF1E8E4E), red = Color(0xFFC0362C);
-  static const statWarn = Color(0xFFF6C177), statBad = Color(0xFFF29C93);
+  /// Contatori in alto: quale riquadro colorato usare (vedi [StatStrip]).
+  static const statWarn = warnFg, statBad = badFg;
 }
+
+const kFont = 'PlusJakartaSans';
 
 const mono = TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600);
 
-// Un'ombra sola e corta: due ombre sfocate su ogni riquadro di un elenco
-// lungo costano molto da disegnare mentre si scorre (soprattutto nel
-// browser del telefono), e a vista la differenza e' minima.
-const panelShadow = [
-  BoxShadow(color: Color(0x140F1B2D), blurRadius: 6, offset: Offset(0, 2)),
-];
-
 ThemeData appTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: C.blue, primary: C.blue, surface: Colors.white);
-  final radius14 = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+  final scheme = ColorScheme.fromSeed(seedColor: C.sand, primary: C.blue, surface: Colors.white);
+  final radius14 = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
   return ThemeData(
     useMaterial3: true,
+    fontFamily: kFont,
     colorScheme: scheme,
     scaffoldBackgroundColor: C.ground,
     appBarTheme: const AppBarTheme(backgroundColor: C.navy, foregroundColor: Colors.white, elevation: 0),
@@ -55,10 +62,12 @@ ThemeData appTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
+        minimumSize: const Size.fromHeight(54),
         shape: radius14,
         elevation: 0,
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        backgroundColor: C.sand,
+        foregroundColor: C.navy,
+        textStyle: const TextStyle(fontFamily: kFont, fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -68,7 +77,7 @@ ThemeData appTheme() {
         backgroundColor: Colors.white,
         side: const BorderSide(color: C.border),
         shape: radius14,
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(fontFamily: kFont, fontSize: 16, fontWeight: FontWeight.w600),
       ),
     ),
     chipTheme: ChipThemeData(
@@ -104,13 +113,12 @@ class Panel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color ?? Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: color == C.navy ? null : panelShadow,
-        border: border,
+        borderRadius: BorderRadius.circular(18),
+        border: border ?? (color == C.navy ? null : Border.all(color: C.cardBorder)),
       ),
       child: Material(
         type: MaterialType.transparency,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         clipBehavior: Clip.antiAlias,
         child: onTap == null && onLongPress == null ? inner : InkWell(onTap: onTap, onLongPress: onLongPress, child: inner),
       ),
@@ -118,8 +126,9 @@ class Panel extends StatelessWidget {
   }
 }
 
-/// L'intestazione blu notte: titolo grande, sottotitolo, eventuale freccia
-/// indietro, azioni a destra e, sotto, i contatori.
+/// L'intestazione chiara (era blu notte fino al 4/10/2026): titolo grande,
+/// sottotitolo, eventuale freccia indietro, azioni a destra e, sotto, i
+/// contatori. Le icone di stato del telefono diventano scure.
 class NavyHeader extends StatelessWidget {
   const NavyHeader({super.key, required this.title, this.subtitle, this.back = false, this.actions = const [], this.bottom});
   final String title;
@@ -129,32 +138,35 @@ class NavyHeader extends StatelessWidget {
   final Widget? bottom;
 
   @override
-  Widget build(BuildContext context) => Container(
-        color: C.navy,
-        padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 14, 20, 18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            if (back) ...[
-              HeaderButton(icon: Icons.arrow_back, tooltip: 'Indietro', onPressed: () => Navigator.maybePop(context)),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -.2)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: C.onNavyMuted, fontSize: 13)),
-                ],
-              ]),
-            ),
-            for (final a in actions) ...[const SizedBox(width: 8), a],
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+        child: Container(
+          color: C.ground,
+          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              if (back) ...[
+                HeaderButton(icon: Icons.arrow_back, tooltip: 'Indietro', onPressed: () => Navigator.maybePop(context)),
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: C.navy, fontSize: back ? 22 : 28, fontWeight: FontWeight.w800, letterSpacing: -.6)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: C.muted, fontSize: 13)),
+                  ],
+                ]),
+              ),
+              for (final a in actions) ...[const SizedBox(width: 8), a],
+            ]),
+            if (bottom != null) ...[const SizedBox(height: 14), bottom!],
           ]),
-          if (bottom != null) ...[const SizedBox(height: 14), bottom!],
-        ]),
+        ),
       );
 }
 
@@ -165,6 +177,8 @@ class HeaderButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Color? color;
   @override
+  /// Senza [color]: bianco col bordo, sull'intestazione chiara. Con un
+  /// colore (sopra una foto, o un'azione in evidenza): icona bianca.
   Widget build(BuildContext context) => SizedBox(
         width: 44,
         height: 44,
@@ -172,32 +186,44 @@ class HeaderButton extends StatelessWidget {
           tooltip: tooltip,
           onPressed: onPressed,
           style: IconButton.styleFrom(
-            backgroundColor: color ?? Colors.white.withValues(alpha: .08),
+            backgroundColor: color ?? Colors.white,
+            side: color == null ? const BorderSide(color: C.cardBorder) : null,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          icon: Icon(icon, color: Colors.white),
+          icon: Icon(icon, color: color == null ? C.navy : Colors.white),
         ),
       );
 }
 
-/// I tre numeri sotto l'intestazione.
+/// I tre numeri sotto l'intestazione: [C.statWarn] su un riquadro ambra,
+/// [C.statBad] su uno rosato, gli altri su bianco.
 class StatStrip extends StatelessWidget {
   const StatStrip(this.stats, {super.key});
   final List<(String value, String label, Color color)> stats;
+
+  static (Color bg, Color fg, Border? border) _look(Color color) {
+    if (color == C.statWarn) return (C.warnBg, C.warnFg, null);
+    if (color == C.statBad) return (C.badBg, C.badFg, null);
+    return (Colors.white, C.navy, Border.all(color: C.cardBorder));
+  }
+
   @override
   Widget build(BuildContext context) => Row(children: [
         for (var i = 0; i < stats.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: .06), borderRadius: BorderRadius.circular(12)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(stats[i].$1, style: TextStyle(color: stats[i].$3, fontSize: 22, fontWeight: FontWeight.w700)),
-                Text(stats[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: C.onNavyMuted, fontSize: 11.5)),
-              ]),
-            ),
+            child: Builder(builder: (context) {
+              final (bg, fg, border) = _look(stats[i].$3);
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                decoration: BoxDecoration(color: bg, border: border, borderRadius: BorderRadius.circular(16)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(stats[i].$1, style: TextStyle(color: fg, fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -.4)),
+                  Text(stats[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: fg == C.navy ? C.muted : fg, fontSize: 12, fontWeight: FontWeight.w500)),
+                ]),
+              );
+            }),
           ),
         ],
       ]);
@@ -225,7 +251,7 @@ class Pill extends StatelessWidget {
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[Icon(icon, size: 13, color: fg), const SizedBox(width: 4)],
-          Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: fg)),
+          Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: fg)),
         ]),
       );
 }
@@ -237,8 +263,8 @@ class LotTag extends StatelessWidget {
   final double size;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(color: C.chipBg, borderRadius: BorderRadius.circular(6)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: C.chipBg, borderRadius: BorderRadius.circular(8)),
         child: Text(code, style: mono.copyWith(fontSize: size, color: C.navy)),
       );
 }

@@ -115,7 +115,7 @@ class _Choice extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Material(
-        color: selected ? C.infoBg : Colors.white,
+        color: selected ? C.sandSoft : Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: BorderSide(color: selected ? C.blue : C.border, width: selected ? 2 : 1),

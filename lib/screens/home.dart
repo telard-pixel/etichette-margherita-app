@@ -112,8 +112,8 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Color(0xFFE3E8EE), offset: Offset(0, -1))]),
-        padding: EdgeInsets.fromLTRB(6, 4, 6, MediaQuery.of(context).padding.bottom + 6),
+        decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: C.cardBorder))),
+        padding: EdgeInsets.fromLTRB(6, 6, 6, MediaQuery.of(context).padding.bottom + 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           for (var i = 0; i < _items.length; i++) Expanded(child: i == 2 ? _camera(i) : _item(i)),
         ]),
@@ -134,14 +134,14 @@ class _BottomNav extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              width: 52,
-              height: 30,
-              decoration: BoxDecoration(color: on ? C.infoBg : Colors.transparent, borderRadius: BorderRadius.circular(15)),
-              child: Icon(on ? iconOn : icon, size: 22, color: on ? C.blue : C.muted),
+              width: 54,
+              height: 32,
+              decoration: BoxDecoration(color: on ? C.sandSoft : Colors.transparent, borderRadius: BorderRadius.circular(16)),
+              child: Icon(on ? iconOn : icon, size: 22, color: on ? C.sandText : C.muted),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(label,
-                style: TextStyle(fontSize: 11.5, color: on ? C.navy : C.muted, fontWeight: on ? FontWeight.w600 : FontWeight.w400)),
+                style: TextStyle(fontSize: 11.5, color: on ? C.navy : C.muted, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
           ]),
         ),
       ),
@@ -160,20 +160,20 @@ class _BottomNav extends StatelessWidget {
           Transform.translate(
             offset: const Offset(0, -10),
             child: Container(
-              width: 58,
-              height: 58,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
-                color: C.blue,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [BoxShadow(color: Color(0x591F5FD1), blurRadius: 16, offset: Offset(0, 6))],
+                color: C.sand,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: const [BoxShadow(color: Color(0x2E1B2333), blurRadius: 14, offset: Offset(0, 6))],
               ),
-              child: const Icon(Icons.photo_camera, color: Colors.white, size: 26),
+              child: const Icon(Icons.photo_camera, color: C.navy, size: 26),
             ),
           ),
           Transform.translate(
             offset: const Offset(0, -6),
             child: Text('Scatta',
-                style: TextStyle(fontSize: 11.5, color: on ? C.navy : C.muted, fontWeight: on ? FontWeight.w600 : FontWeight.w400)),
+                style: TextStyle(fontSize: 11.5, color: on ? C.navy : C.muted, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
           ),
         ]),
       ),

@@ -337,29 +337,26 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       ),
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-          child: DecoratedBox(
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: panelShadow),
-            child: TextField(
-              controller: _search,
-              onChanged: _onSearch,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Cerca prodotto o lotto',
-                prefixIcon: const Icon(Icons.search, color: C.muted),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Cancella ricerca',
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          _search.clear();
-                          setState(_restart);
-                          _load();
-                        }),
-              ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+          child: TextField(
+            controller: _search,
+            onChanged: _onSearch,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Cerca prodotto o lotto',
+              prefixIcon: const Icon(Icons.search, color: C.muted),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: C.border)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: C.border)),
+              suffixIcon: _search.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Cancella ricerca',
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _search.clear();
+                        setState(_restart);
+                        _load();
+                      }),
             ),
           ),
         ),
@@ -482,7 +479,7 @@ class ItemTile extends StatelessWidget {
     final internal = s['lotto_interno_codice'] as String?;
     return Panel(
       padding: const EdgeInsets.all(12),
-      color: selected ? C.infoBg : (reading ? const Color(0xFFF5F8FF) : null),
+      color: selected ? C.sandSoft : (reading ? const Color(0xFFFAF9F6) : null),
       border: selected ? Border.all(color: C.blue, width: 2) : null,
       onLongPress: onSelect,
       onTap: selecting
@@ -494,8 +491,8 @@ class ItemTile extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Stack(children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(width: 72, height: 72, child: ItemPhoto(s['id'] as int, size: PhotoSize.mini, cacheWidth: 216)),
+            borderRadius: BorderRadius.circular(14),
+            child: SizedBox(width: 76, height: 76, child: ItemPhoto(s['id'] as int, size: PhotoSize.mini, cacheWidth: 228)),
           ),
           if (selecting)
             Positioned(
@@ -516,7 +513,7 @@ class ItemTile extends StatelessWidget {
                 child: Text(reading ? 'Foto in lettura' : (s['prodotto'] ?? 'Prodotto non letto'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -.2)),
               ),
               const SizedBox(width: 8),
               Pill.status(s),
@@ -537,7 +534,7 @@ class ItemTile extends StatelessWidget {
                 child: Text('${whenArrived(s['arrivata_alle'])} · $who',
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.muted)),
               ),
-              if (internal != null) Text(internal, style: mono.copyWith(fontSize: 12, color: C.infoFg)),
+              if (internal != null) Text(internal, style: mono.copyWith(fontSize: 12, color: C.sandText)),
             ]),
           ]),
         ),

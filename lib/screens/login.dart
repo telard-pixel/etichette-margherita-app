@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api.dart';
@@ -77,7 +78,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final dots = _pin.length < 6 ? 6 : _pin.length;
-    return Scaffold(
+    // In alto il riquadro blu notte: icone di stato chiare.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
       body: SafeArea(
         top: false,
         child: ListView(
@@ -94,15 +98,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: C.blue,
+                    color: C.sand,
                     borderRadius: BorderRadius.circular(18),
-                    boxShadow: const [BoxShadow(color: Color(0x661F5FD1), blurRadius: 20, offset: Offset(0, 8))],
                   ),
-                  child: const Icon(Icons.sell_outlined, color: Colors.white, size: 32),
+                  child: const Icon(Icons.sell_outlined, color: C.navy, size: 32),
                 ),
                 const SizedBox(height: 14),
                 const Text('Etichette Margherita',
-                    style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -.3)),
+                    style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -.5)),
                 const SizedBox(height: 6),
                 const Text('Archivio etichette, lotti interni e stampa',
                     style: TextStyle(color: C.onNavyMuted, fontSize: 14)),
@@ -167,6 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

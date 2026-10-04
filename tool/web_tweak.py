@@ -14,7 +14,7 @@ html = re.sub(r'<meta name="description" content="[^"]*">',
 html = re.sub(r'<meta name="apple-mobile-web-app-title" content="[^"]*">',
               '<meta name="apple-mobile-web-app-title" content="Etichette">', html)
 if 'name="theme-color"' not in html:
-    html = html.replace("</head>", '  <meta name="theme-color" content="#0F1B2D">\n</head>', 1)
+    html = html.replace("</head>", '  <meta name="theme-color" content="#F6F5F2">\n</head>', 1)
 html = html.replace('<html>', '<html lang="it">', 1)
 
 # Diagnostica (2/10/2026, pagina bianca su iPhone): avvio, primo disegno ed
@@ -31,11 +31,11 @@ DIAGNOSTICA = """
     }
     function show() {
       var box = document.createElement('div');
-      box.style.cssText = 'position:fixed;inset:0;background:#0F1B2D;color:#fff;font:16px -apple-system,sans-serif;padding:24px;overflow:auto;z-index:9';
+      box.style.cssText = 'position:fixed;inset:0;background:#1B2333;color:#fff;font:16px -apple-system,sans-serif;padding:24px;overflow:auto;z-index:9';
       box.innerHTML = '<h2 style="margin-top:40px">La pagina non si è avviata</h2>'
         + '<p>Il browser non riesce a far partire l&#39;app. Il motivo è stato mandato al server.</p>'
-        + '<pre style="white-space:pre-wrap;font-size:12px;color:#A9B6CA"></pre>'
-        + '<button style="font-size:16px;padding:12px 18px;border-radius:10px;border:0;background:#1F5FD1;color:#fff" onclick="location.reload()">Riprova</button>';
+        + '<pre style="white-space:pre-wrap;font-size:12px;color:#A9B2C3"></pre>'
+        + '<button style="font-size:16px;padding:12px 18px;border-radius:10px;border:0;background:#D9C4A3;color:#1B2333" onclick="location.reload()">Riprova</button>';
       box.querySelector('pre').textContent = problems.join('\\n') || 'Nessun errore dal browser (forse memoria o grafica non supportata).';
       document.body.appendChild(box);
     }
@@ -83,11 +83,11 @@ html = html.replace("</head>", INDIETRO + "</head>", 1)
 # Schermata di caricamento al posto della pagina bianca: la prima volta il
 # browser scarica qualche MB (motore grafico e programma) prima di disegnare.
 CARICAMENTO = """
-  <div id="caricamento" style="position:fixed;inset:0;background:#0F1B2D;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;padding:24px">
+  <div id="caricamento" style="position:fixed;inset:0;background:#1B2333;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;text-align:center;padding:24px">
     <img src="icons/Icon-192.png" width="88" height="88" alt="" style="border-radius:22px">
     <div style="font-size:22px;font-weight:700">Etichette Margherita</div>
-    <div style="width:36px;height:36px;border:4px solid rgba(255,255,255,.2);border-top-color:#8FB1F0;border-radius:50%;animation:giro 0.9s linear infinite"></div>
-    <div style="color:#A9B6CA;max-width:280px">Caricamento… la prima volta può richiedere qualche secondo in più.</div>
+    <div style="width:36px;height:36px;border:4px solid rgba(255,255,255,.2);border-top-color:#D9C4A3;border-radius:50%;animation:giro 0.9s linear infinite"></div>
+    <div style="color:#A9B2C3;max-width:280px">Caricamento… la prima volta può richiedere qualche secondo in più.</div>
     <style>@keyframes giro{to{transform:rotate(360deg)}}@media (prefers-reduced-motion: reduce){#caricamento div{animation:none!important}}</style>
   </div>
 """
@@ -100,8 +100,8 @@ manifest.update({
     "name": "Etichette Margherita",
     "short_name": "Etichette",
     "description": "Archivio etichette, lotti interni e stampa",
-    "background_color": "#0F1B2D",
-    "theme_color": "#0F1B2D",
+    "background_color": "#1B2333",
+    "theme_color": "#F6F5F2",
     "start_url": ".",
     "display": "standalone",
     "lang": "it",

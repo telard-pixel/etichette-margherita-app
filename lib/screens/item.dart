@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api.dart';
@@ -227,7 +228,7 @@ class _ItemScreenState extends State<ItemScreen> {
 
   Widget _menu() => PopupMenuButton<String>(
         tooltip: 'Altre azioni',
-        style: IconButton.styleFrom(backgroundColor: const Color(0x8C0F1B2D)),
+        style: IconButton.styleFrom(backgroundColor: const Color(0x8C1B2333)),
         icon: const Icon(Icons.more_horiz, color: Colors.white),
         onSelected: (v) {
           if (v == 'foto') _addPhoto();
@@ -252,7 +253,10 @@ class _ItemScreenState extends State<ItemScreen> {
         body: _error != null ? ErrorRetry(_error!, _load) : const Center(child: CircularProgressIndicator()),
       );
     }
-    return Scaffold(
+    // Sopra la foto c'e' la fascia scura: icone di stato chiare.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
       // Una fascia scura sotto l'orologio: scorrendo, la foto non finisce
       // sotto le icone di stato del telefono (3/10/2026).
       body: Stack(children: [
@@ -278,7 +282,7 @@ class _ItemScreenState extends State<ItemScreen> {
                 child: HeaderButton(
                   icon: Icons.arrow_back,
                   tooltip: 'Indietro',
-                  color: const Color(0x8C0F1B2D),
+                  color: const Color(0x8C1B2333),
                   onPressed: () => Navigator.maybePop(context),
                 ),
               ),
@@ -288,7 +292,7 @@ class _ItemScreenState extends State<ItemScreen> {
                 Positioned(
                   right: 16,
                   bottom: 34,
-                  child: Pill('${_photoPage + 1} / ${_photoIds.length} · scorri', bg: const Color(0x990F1B2D), fg: Colors.white),
+                  child: Pill('${_photoPage + 1} / ${_photoIds.length} · scorri', bg: const Color(0x991B2333), fg: Colors.white),
                 ),
                 Positioned(
                   left: 0,
@@ -400,9 +404,10 @@ class _ItemScreenState extends State<ItemScreen> {
           left: 0,
           right: 0,
           height: MediaQuery.of(context).padding.top,
-          child: const ColoredBox(color: Color(0xCC0F1B2D)),
+          child: const ColoredBox(color: Color(0xCC1B2333)),
         ),
       ]),
+      ),
     );
   }
 
@@ -429,8 +434,8 @@ class _InternalLotCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: C.softBlue.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.sell_outlined, color: C.softBlue, size: 22),
+            decoration: BoxDecoration(color: C.accentOnDark.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.sell_outlined, color: C.accentOnDark, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(

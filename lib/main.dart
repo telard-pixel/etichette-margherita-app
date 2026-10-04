@@ -14,7 +14,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // Intestazioni blu notte in cima a ogni schermata: icone di stato chiare.
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light),
+    const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, statusBarBrightness: Brightness.light),
   );
   runApp(const EtichetteApp());
   // Nella versione web il gesto "indietro" chiude la schermata aperta (se
@@ -68,5 +68,5 @@ class _StartGateState extends State<StartGate> {
 
   @override
   Widget build(BuildContext context) =>
-      const Scaffold(backgroundColor: C.navy, body: Center(child: CircularProgressIndicator(color: Colors.white)));
+      const Scaffold(backgroundColor: C.navy, body: Center(child: CircularProgressIndicator(color: C.sand)));
 }
