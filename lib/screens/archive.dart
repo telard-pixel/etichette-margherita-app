@@ -92,8 +92,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     };
   }
 
-  /// Senza ricerca, Tutte, Da rivedere e Dall'app vanno a pagine.
-  bool get _paged => _search.text.trim().isEmpty && _filter != Filter.today;
+  /// Vanno a pagine, dalla scheda piu' nuova: la ricerca, Tutte, Da
+  /// rivedere e Dall'app. Oggi no: e' gia' tutta.
+  bool get _paged => _search.text.trim().isNotEmpty || _filter != Filter.today;
+
+  /// La richiesta che ha dato l'elenco in vista: per un lotto senza
+  /// risultati e' la ricerca per nome ("Riso 1/10"), e le pagine dopo
+  /// devono continuare quella.
+  Map<String, String> _shown = {};
 
   /// Si ricomincia dalla prima pagina (altro filtro, altra ricerca).
   void _restart() {
@@ -104,7 +110,8 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   }
 
   /// Il server non sa ancora andare a pagine: niente "altre" nella risposta.
-  bool _byDay(Map<String, dynamic> body) => _filter == Filter.all && !body.containsKey('altre');
+  bool _byDay(Map<String, dynamic> body) =>
+      _search.text.trim().isEmpty && _filter == Filter.all && !body.containsKey('altre');
 
   /// Ogni caricamento ha un numero: vale solo la risposta dell'ultimo, cosi'
   /// una ricerca lenta ("ri") non copre quella appena scritta ("riso").
@@ -114,12 +121,20 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     final request = ++_request;
     try {
       final paged = _paged;
-      final body = await Api.instance.get('/schede', {..._query, if (paged) 'quanti': '$_wanted'});
+      var query = _query;
+      var body = await Api.instance.get('/schede', {...query, if (paged) 'quanti': '$_wanted'});
       var items = (body['schede'] as List).cast<Map<String, dynamic>>();
       final text = _search.text.trim();
       if (text.isNotEmpty && items.isEmpty && RegExp(r'\d').hasMatch(text)) {
         // "Riso 1/10": il nome contiene cifre, non e' un lotto.
-        items = ((await Api.instance.get('/schede', {'cerca': text}))['schede'] as List).cast<Map<String, dynamic>>();
+        query = {'cerca': text};
+        body = await Api.instance.get('/schede', {...query, 'quanti': '$_wanted'});
+        items = (body['schede'] as List).cast<Map<String, dynamic>>();
+      }
+      if (text.isNotEmpty && !body.containsKey('altre')) {
+        // Server di prima delle pagine: le sue 50 dalla piu' vecchia; almeno
+        // in vista le piu' nuove vanno in cima.
+        items = [...items]..sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
       }
       Map<String, dynamic>? summary;
       try {
@@ -139,6 +154,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       final total = (summary?['totale'] as num?)?.toInt() ?? 0;
       setState(() {
         _items = items;
+        _shown = query;
         _summary = summary;
         _error = null;
         _loading = false;
@@ -167,7 +183,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     try {
       // Gia' visto che il server e' vecchio: avanti per giorni.
       if (await _olderByDay(request) != null) return;
-      final body = await Api.instance.get('/schede', {..._query, 'quanti': '$_page', 'prima_di': '$last'});
+      final body = await Api.instance.get('/schede', {..._shown, 'quanti': '$_page', 'prima_di': '$last'});
       if (!mounted || request != _request) return;
       if (_byDay(body)) {
         // Server vecchio: ha ignorato "prima_di". Si va per giorni.
