@@ -37,6 +37,10 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   bool _more = false;
   bool _loadingMore = false;
   String? _moreError;
+  /// Server di prima delle pagine (manda solo le ultime 50): le schede piu'
+  /// vecchie si prendono giorno per giorno con ?giorno=, che non ha limite.
+  /// Il prossimo giorno da chiedere, andando indietro.
+  DateTime? _dayCursor;
   /// Schede scelte per la stampa di piu' etichette (tenendo premuta una
   /// scheda si entra nella selezione), nell'ordine in cui sono state scelte.
   final Map<int, Map<String, dynamic>> _selected = {};
@@ -96,7 +100,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     _wanted = _page;
     _more = false;
     _moreError = null;
+    _dayCursor = null;
   }
+
+  /// Il server non sa ancora andare a pagine: niente "altre" nella risposta.
+  bool _byDay(Map<String, dynamic> body) => _filter == Filter.all && !body.containsKey('altre');
 
   /// Ogni caricamento ha un numero: vale solo la risposta dell'ultimo, cosi'
   /// una ricerca lenta ("ri") non copre quella appena scritta ("riso").
@@ -120,13 +128,21 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         summary = _summary;
       }
       if (!mounted || request != _request) return;
+      final byDay = paged && _byDay(body);
+      if (byDay && _wanted > _page && items.isNotEmpty) {
+        // Ricaricando, il server vecchio rimanda solo le ultime 50: quelle
+        // piu' vecchie gia' mostrate scorrendo restano in fondo.
+        final fresh = {for (final s in items) s['id']};
+        final cutoff = items.map((s) => s['id'] as int).reduce((a, b) => a < b ? a : b);
+        items = [...items, ..._items.where((s) => !fresh.contains(s['id']) && (s['id'] as int) < cutoff)];
+      }
+      final total = (summary?['totale'] as num?)?.toInt() ?? 0;
       setState(() {
         _items = items;
         _summary = summary;
         _error = null;
         _loading = false;
-        // Un server di prima delle pagine non manda "altre": niente di piu'.
-        _more = paged && body['altre'] == true;
+        _more = paged && (body['altre'] == true || (byDay && items.isNotEmpty && items.length < total));
       });
       _schedulePoll();
     } on ApiError catch (e) {
@@ -149,8 +165,15 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       _moreError = null;
     });
     try {
+      // Gia' visto che il server e' vecchio: avanti per giorni.
+      if (await _olderByDay(request) != null) return;
       final body = await Api.instance.get('/schede', {..._query, 'quanti': '$_page', 'prima_di': '$last'});
       if (!mounted || request != _request) return;
+      if (_byDay(body)) {
+        // Server vecchio: ha ignorato "prima_di". Si va per giorni.
+        await _olderByDay(request, force: true);
+        return;
+      }
       // Solo quelle piu' vecchie dell'ultima: se intanto l'elenco e' stato
       // ricaricato con piu' schede, niente doppioni.
       final oldest = _items.last['id'] as int;
@@ -165,6 +188,42 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
+  }
+
+  /// Server vecchio: le schede piu' vecchie dell'ultima in elenco, un giorno
+  /// alla volta all'indietro (una settimana di richieste insieme), finche' ne
+  /// arrivano almeno 20 o sono tutte. null se il server sa andare a pagine.
+  Future<List<Map<String, dynamic>>?> _olderByDay(int request, {bool force = false}) async {
+    if (_dayCursor == null && !force) return null;
+    final seen = {for (final s in _items) s['id']};
+    var day = _dayCursor ?? DateTime.tryParse('${_items.last['giorno']}') ?? today();
+    day = DateTime(day.year, day.month, day.day);
+    final found = <Map<String, dynamic>>[];
+    var emptyDays = 0;
+    // 60 giorni di fila senza schede: l'archivio e' finito.
+    while (found.length < 20 && emptyDays < 60) {
+      final days = [for (var i = 0; i < 7; i++) addDays(day, -i)];
+      final bodies = await Future.wait(days.map((d) => Api.instance.get('/schede', {'giorno': isoDay(d)})));
+      if (!mounted || request != _request) return found;
+      for (final body in bodies) {
+        final rows = (body['schede'] as List).cast<Map<String, dynamic>>().where((s) => !seen.contains(s['id'])).toList();
+        emptyDays = rows.isEmpty ? emptyDays + 1 : 0;
+        for (final s in rows) {
+          seen.add(s['id']);
+          found.add(s);
+        }
+      }
+      day = addDays(day, -7);
+    }
+    found.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+    final total = (_summary?['totale'] as num?)?.toInt() ?? 0;
+    setState(() {
+      _dayCursor = day;
+      _items = [..._items, ...found];
+      _wanted = _items.length;
+      _more = found.isNotEmpty && _items.length < total;
+    });
+    return found;
   }
 
   /// Finche' una foto e' in lettura, l'elenco si aggiorna da solo.
