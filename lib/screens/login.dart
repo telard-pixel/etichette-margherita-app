@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../ui.dart';
@@ -69,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _busy ? null : () => _key(k),
             style: OutlinedButton.styleFrom(minimumSize: const Size(0, 60)),
             child: k == '<'
-                ? const Icon(Icons.backspace_outlined, semanticLabel: 'Cancella')
+                ? const Icon(Symbols.backspace_rounded, semanticLabel: 'Cancella')
                 : Text(k, style: const TextStyle(fontSize: 22)),
           ),
         ),
@@ -101,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: C.sand,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(Icons.sell_outlined, color: C.navy, size: 32),
+                  child: const Icon(Symbols.sell_rounded, color: C.navy, size: 32),
                 ),
                 const SizedBox(height: 14),
                 const Text('Etichette Margherita',
@@ -136,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: i < _pin.length ? C.navy : null,
-                          border: i < _pin.length ? null : Border.all(color: const Color(0xFF8A96A8), width: 2),
+                          border: i < _pin.length ? null : Border.all(color: const Color(0xFFA39B8F), width: 2),
                         ),
                       ),
                   ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../ui.dart';
@@ -142,7 +143,7 @@ class _IngredientSheetState extends State<_IngredientSheet> {
               child: TextField(
                 controller: _search,
                 onChanged: _searchChanged,
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Cerca prodotto o lotto'),
+                decoration: const InputDecoration(prefixIcon: Icon(Symbols.search_rounded), hintText: 'Cerca prodotto o lotto'),
               ),
             ),
             const SizedBox(height: 6),
@@ -169,7 +170,7 @@ class _IngredientSheetState extends State<_IngredientSheet> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 13, color: C.muted),
                               ),
-                              trailing: const Icon(Icons.add_circle_outline, color: C.navy),
+                              trailing: const Icon(Symbols.add_circle_rounded, color: C.navy),
                               onTap: () => Navigator.pop(
                                 context,
                                 Ingredient(name: name == null || name.isEmpty ? 'Scheda #${item['id']}' : name, lot: lot, itemId: item['id'] as int),

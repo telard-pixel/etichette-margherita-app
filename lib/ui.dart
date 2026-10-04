@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'api.dart';
 import 'platform/platform.dart' show readPhotoCache, writePhotoCache, forgetPhotoCache;
@@ -29,7 +30,9 @@ class C {
   static const okBg = Color(0xFFE4F2E9), okFg = Color(0xFF1F6B41);
   static const warnBg = Color(0xFFFDF1DE), warnFg = Color(0xFF8A4A00);
   static const badBg = Color(0xFFFCE7E2), badFg = Color(0xFFA3301B);
-  static const infoBg = Color(0xFFE8EDF6), infoFg = Color(0xFF2D4A80);
+  /// Ottanio (era azzurro fino al 4/10/2026): in lettura, admin, giorni.
+  static const infoBg = Color(0xFFDFECEA), infoFg = Color(0xFF2C5E58);
+  static const infoTint = Color(0xFFF4F9F8);
   static const green = Color(0xFF1E8E4E), red = Color(0xFFC0362C);
   /// Contatori in alto: quale riquadro colorato usare (vedi [StatStrip]).
   static const statWarn = warnFg, statBad = badFg;
@@ -144,7 +147,7 @@ class NavyHeader extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               if (back) ...[
-                HeaderButton(icon: Icons.arrow_back, tooltip: 'Indietro', onPressed: () => Navigator.maybePop(context)),
+                HeaderButton(icon: Symbols.arrow_back_rounded, tooltip: 'Indietro', onPressed: () => Navigator.maybePop(context)),
                 const SizedBox(width: 12),
               ],
               Expanded(
@@ -235,9 +238,9 @@ class Pill extends StatelessWidget {
 
   factory Pill.status(Map<String, dynamic> s) {
     if (s['in_archiviazione'] == true) {
-      return const Pill('In archiviazione…', bg: C.infoBg, fg: C.infoFg, icon: Icons.cloud_upload_outlined);
+      return const Pill('In archiviazione…', bg: C.infoBg, fg: C.infoFg, icon: Symbols.cloud_upload_rounded);
     }
-    if (s['in_lavorazione'] == true) return const Pill('In lettura…', bg: C.infoBg, fg: C.infoFg, icon: Icons.sync);
+    if (s['in_lavorazione'] == true) return const Pill('In lettura…', bg: C.infoBg, fg: C.infoFg, icon: Symbols.sync_rounded);
     if (s['fallita'] == true) return const Pill('Non riuscita', bg: C.badBg, fg: C.badFg);
     if (s['da_rivedere'] == true) return const Pill('Da rivedere', bg: C.warnBg, fg: C.warnFg);
     return const Pill('Archiviata', bg: C.okBg, fg: C.okFg);
@@ -336,7 +339,7 @@ class MenuRow extends StatelessWidget {
               if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 12, color: C.muted)),
             ]),
           ),
-          trailing ?? (danger || onTap == null ? const SizedBox() : const Icon(Icons.chevron_right, color: C.faint)),
+          trailing ?? (danger || onTap == null ? const SizedBox() : const Icon(Symbols.chevron_right_rounded, color: C.faint)),
         ]),
       ),
     );
@@ -461,20 +464,20 @@ class _ItemPhotoState extends State<ItemPhoto> {
   Widget build(BuildContext context) {
     final data = _data;
     if (data == null) {
-      return PhotoPlaceholder(icon: _failed ? Icons.image_not_supported_outlined : Icons.image_outlined);
+      return PhotoPlaceholder(icon: _failed ? Symbols.image_not_supported_rounded : Symbols.image_rounded);
     }
     return Image.memory(
       data,
       fit: widget.fit,
       cacheWidth: widget.cacheWidth,
       gaplessPlayback: true,
-      errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Icons.image_not_supported_outlined),
+      errorBuilder: (context, error, stack) => const PhotoPlaceholder(icon: Symbols.image_not_supported_rounded),
     );
   }
 }
 
 class PhotoPlaceholder extends StatelessWidget {
-  const PhotoPlaceholder({super.key, this.icon = Icons.image_outlined});
+  const PhotoPlaceholder({super.key, this.icon = Symbols.image_rounded});
   final IconData icon;
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -540,7 +543,7 @@ class ErrorRetry extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.cloud_off, size: 40, color: C.muted),
+            const Icon(Symbols.cloud_off_rounded, size: 40, color: C.muted),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),

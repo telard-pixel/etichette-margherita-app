@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../format.dart';
@@ -301,7 +302,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: FilledButton.icon(
                   onPressed: _printSelection,
-                  icon: const Icon(Icons.print),
+                  icon: const Icon(Symbols.print_rounded),
                   label: Text(_selected.length == 1 ? 'Stampa 1 etichetta' : 'Stampa ${_selected.length} etichette'),
                 ),
               ),
@@ -313,7 +314,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               subtitle: 'Tocca altre schede per aggiungerle',
               actions: [
                 HeaderButton(
-                  icon: Icons.select_all,
+                  icon: Symbols.select_all_rounded,
                   tooltip: 'Seleziona tutte quelle in elenco',
                   onPressed: () => setState(() {
                     for (final s in _items) {
@@ -321,7 +322,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                     }
                   }),
                 ),
-                HeaderButton(icon: Icons.close, tooltip: 'Annulla selezione', onPressed: () => setState(_selected.clear)),
+                HeaderButton(icon: Symbols.close_rounded, tooltip: 'Annulla selezione', onPressed: () => setState(_selected.clear)),
               ],
             )
           : NavyHeader(
@@ -344,14 +345,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Cerca prodotto o lotto',
-              prefixIcon: const Icon(Icons.search, color: C.muted),
+              prefixIcon: const Icon(Symbols.search_rounded, color: C.muted),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: C.border)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: C.border)),
               suffixIcon: _search.text.isEmpty
                   ? null
                   : IconButton(
                       tooltip: 'Cancella ricerca',
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Symbols.close_rounded),
                       onPressed: () {
                         _search.clear();
                         setState(_restart);
@@ -377,7 +378,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Row(children: [
-              Icon(Icons.touch_app_outlined, size: 15, color: C.faint),
+              Icon(Symbols.touch_app_rounded, size: 15, color: C.faint),
               SizedBox(width: 6),
               Text('Tieni premuta una scheda per stamparne più insieme', style: TextStyle(fontSize: 12, color: C.muted)),
             ]),
@@ -447,7 +448,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           setState(() => _moreError = null);
           _loadMore();
         },
-        icon: const Icon(Icons.expand_more),
+        icon: const Icon(Symbols.expand_more_rounded),
         label: const Text('Carica schede più vecchie'),
       ),
     ]);
@@ -499,7 +500,8 @@ class ItemTile extends StatelessWidget {
               top: 4,
               left: 4,
               child: Icon(
-                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                selected ? Symbols.check_circle_rounded : Symbols.radio_button_unchecked_rounded,
+                fill: selected ? 1 : 0,
                 color: selected ? C.blue : Colors.white,
                 shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
               ),

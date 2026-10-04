@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../format.dart';
@@ -66,7 +67,7 @@ class _UsersScreenState extends State<UsersScreen> {
     final status = !active
         ? const Pill('disattivato', bg: C.chipBg, fg: Color(0xFF3B4656))
         : phones > 0
-            ? Pill(phones == 1 ? '1 telefono' : '$phones telefoni', bg: C.okBg, fg: C.okFg, icon: Icons.smartphone)
+            ? Pill(phones == 1 ? '1 telefono' : '$phones telefoni', bg: C.okBg, fg: C.okFg, icon: Symbols.smartphone_rounded)
             : const Pill('non collegato', bg: C.chipBg, fg: Color(0xFF3B4656));
     return InkWell(
       onTap: () async {
@@ -113,7 +114,7 @@ class _UsersScreenState extends State<UsersScreen> {
         title: 'Utenti',
         subtitle: 'Chi usa l\'app e da quali telefoni',
         back: true,
-        actions: [HeaderButton(icon: Icons.add, tooltip: 'Nuovo utente', color: C.blue, onPressed: _newUser)],
+        actions: [HeaderButton(icon: Symbols.add_rounded, tooltip: 'Nuovo utente', color: C.blue, onPressed: _newUser)],
       ),
       body: users == null
           ? (_error != null ? ErrorRetry(_error!, _load) : const Center(child: CircularProgressIndicator()))
@@ -133,7 +134,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 const Text('Tocca un utente per vedere i telefoni, cambiare il PIN o scollegarlo',
                     textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
                 const SizedBox(height: 18),
-                FilledButton.icon(onPressed: _newUser, icon: const Icon(Icons.add), label: const Text('Nuovo utente')),
+                FilledButton.icon(onPressed: _newUser, icon: const Icon(Symbols.add_rounded), label: const Text('Nuovo utente')),
               ]),
             ),
     );
@@ -333,7 +334,7 @@ class _UserScreenState extends State<UserScreen> {
               for (var i = 0; i < phones.length; i++) ...[
                 if (i > 0) const Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
                 MenuRow(
-                  icon: Icons.smartphone,
+                  icon: Symbols.smartphone_rounded,
                   title: phones[i]['telefono'] as String? ?? 'telefono',
                   subtitle: 'Ultimo uso ${lastSeen(phones[i]['ultimo_uso'])} · entrato il ${_localDay(phones[i]['entrato_il'] as String?)}',
                 ),
@@ -362,7 +363,7 @@ class _UserScreenState extends State<UserScreen> {
           const SizedBox(height: 18),
           Row(children: [
             Expanded(
-              child: OutlinedButton.icon(onPressed: _changePin, icon: const Icon(Icons.key_outlined), label: const Text('Cambia PIN')),
+              child: OutlinedButton.icon(onPressed: _changePin, icon: const Icon(Symbols.key_rounded), label: const Text('Cambia PIN')),
             ),
             if (!_isMe) ...[
               const SizedBox(width: 10),
@@ -370,7 +371,7 @@ class _UserScreenState extends State<UserScreen> {
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: C.badFg, side: const BorderSide(color: Color(0xFFEBC3BE))),
                   onPressed: phones.isEmpty ? null : _disconnect,
-                  icon: const Icon(Icons.logout),
+                  icon: const Icon(Symbols.logout_rounded),
                   label: const Text('Scollega'),
                 ),
               ),

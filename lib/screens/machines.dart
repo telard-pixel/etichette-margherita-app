@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../ui.dart';
@@ -200,7 +201,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
           for (final w in waiting)
             ListTile(
               dense: true,
-              leading: Icon(w['fonte'] == 'telegram' ? Icons.send_outlined : Icons.phone_android, color: C.muted),
+              leading: Icon(w['fonte'] == 'telegram' ? Symbols.send_rounded : Symbols.phone_android_rounded, color: C.muted),
               title: Text('${w['prodotto'] ?? '—'} · ${w['lotto']}'),
               subtitle: Text([
                 '${w['copie']} copie${(w['etichette'] ?? 1) > 1 ? ' × ${w['etichette']} etichette' : ''}',
@@ -230,7 +231,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                 title: Text(r['messaggio'] as String? ?? r['stato'] as String),
                 subtitle: Text(r['chi'] as String? ?? ''),
                 trailing: Icon(
-                  r['stato'] == 'stampata' ? Icons.check_circle_outline : (r['stato'] == 'errore' ? Icons.error_outline : Icons.cancel_outlined),
+                  r['stato'] == 'stampata' ? Symbols.check_circle_rounded : (r['stato'] == 'errore' ? Symbols.error_rounded : Symbols.cancel_rounded),
                   color: r['stato'] == 'stampata' ? C.okFg : (r['stato'] == 'errore' ? C.badFg : C.muted),
                 ),
               ),

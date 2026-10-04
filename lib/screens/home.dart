@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 
@@ -103,11 +104,11 @@ class _BottomNav extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   static const _items = [
-    (Icons.inventory_2_outlined, Icons.inventory_2, 'Archivio'),
-    (Icons.schedule_outlined, Icons.schedule, 'Scadenze'),
-    (Icons.photo_camera_outlined, Icons.photo_camera, 'Scatta'),
-    (Icons.sell_outlined, Icons.sell, 'Etichette'),
-    (Icons.menu, Icons.menu, 'Altro'),
+    (Symbols.inventory_2_rounded, Symbols.inventory_2_rounded, 'Archivio'),
+    (Symbols.schedule_rounded, Symbols.schedule_rounded, 'Scadenze'),
+    (Symbols.photo_camera_rounded, Symbols.photo_camera_rounded, 'Scatta'),
+    (Symbols.sell_rounded, Symbols.sell_rounded, 'Etichette'),
+    (Symbols.menu_rounded, Symbols.menu_rounded, 'Altro'),
   ];
 
   @override
@@ -137,7 +138,7 @@ class _BottomNav extends StatelessWidget {
               width: 54,
               height: 32,
               decoration: BoxDecoration(color: on ? C.sandSoft : Colors.transparent, borderRadius: BorderRadius.circular(16)),
-              child: Icon(on ? iconOn : icon, size: 22, color: on ? C.sandText : C.muted),
+              child: Icon(on ? iconOn : icon, fill: on ? 1 : 0, size: 22, color: on ? C.sandText : C.muted),
             ),
             const SizedBox(height: 4),
             Text(label,
@@ -167,7 +168,7 @@ class _BottomNav extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
                 boxShadow: const [BoxShadow(color: Color(0x2E1B2333), blurRadius: 14, offset: Offset(0, 6))],
               ),
-              child: const Icon(Icons.photo_camera, color: C.navy, size: 26),
+              child: const Icon(Symbols.photo_camera_rounded, color: C.navy, size: 26),
             ),
           ),
           Transform.translate(

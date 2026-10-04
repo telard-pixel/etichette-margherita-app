@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../platform/platform.dart' as platform;
@@ -169,7 +170,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         child: OutlinedButton(
                           onPressed: _sending ? null : () => _take(ImageSource.camera),
                           child: const Column(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.add_a_photo_outlined),
+                            Icon(Symbols.add_a_photo_rounded),
                             SizedBox(height: 6),
                             Text('Altra foto\nstesso prodotto', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
                           ]),
@@ -188,7 +189,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                           tooltip: 'Togli questa foto',
                           style: IconButton.styleFrom(backgroundColor: Colors.black54),
                           onPressed: _sending || i < _sentCount ? null : () => setState(() => _photos.removeAt(i)),
-                          icon: const Icon(Icons.close, color: Colors.white),
+                          icon: const Icon(Symbols.close_rounded, color: Colors.white),
                         ),
                       ),
                     ]);
@@ -220,7 +221,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _sending ? null : () => _take(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined),
+                  icon: const Icon(Symbols.photo_library_rounded),
                   label: const Text('Galleria'),
                 ),
               ),
@@ -230,7 +231,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                   onPressed: _sending || _photos.isEmpty ? null : _send,
                   icon: _sending
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5))
-                      : const Icon(Icons.send),
+                      : const Icon(Symbols.send_rounded),
                   label: Text(_sending ? 'Invio…' : 'Invia'),
                 ),
               ),
@@ -254,7 +255,7 @@ class _BigCameraButton extends StatelessWidget {
           child: const SizedBox(
             height: 260,
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.photo_camera, color: Colors.white, size: 56),
+              Icon(Symbols.photo_camera_rounded, color: Colors.white, size: 56),
               SizedBox(height: 12),
               Text('Scatta la foto', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600)),
             ]),

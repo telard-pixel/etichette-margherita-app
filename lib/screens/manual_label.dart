@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../format.dart';
@@ -209,12 +210,12 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
                 for (final (index, ing) in _ingredients.indexed)
                   ListTile(
                     dense: true,
-                    leading: Icon(ing.itemId != null ? Icons.inventory_2_outlined : Icons.edit_outlined, color: C.muted, size: 20),
+                    leading: Icon(ing.itemId != null ? Symbols.inventory_2_rounded : Symbols.edit_rounded, color: C.muted, size: 20),
                     title: Text(ing.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15)),
                     subtitle: Text(ing.lot ?? 'senza lotto', style: mono.copyWith(fontSize: 13, color: C.muted)),
                     trailing: IconButton(
                       tooltip: 'Togli',
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(Symbols.close_rounded),
                       onPressed: () => setState(() => _ingredients.removeAt(index)),
                     ),
                   ),
@@ -224,14 +225,14 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _busy ? null : _addIngredient,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Symbols.add_rounded),
               label: const Text('Aggiungi ingrediente'),
             ),
           ],
           const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: _busy ? null : () => _create(print: true),
-            icon: const Icon(Icons.print),
+            icon: const Icon(Symbols.print_rounded),
             label: const Text('Crea e stampa'),
           ),
           const SizedBox(height: 8),
@@ -252,7 +253,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
                     title: Text(lot['prodotto'] ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text('${lot['codice']} · ${lot['operatore'] ?? ''}'
                         '${(lot['ingredienti'] as List? ?? []).isNotEmpty ? ' · ${(lot['ingredienti'] as List).length} ingredienti' : ''}', style: mono.copyWith(fontSize: 13, color: C.muted)),
-                    trailing: const Icon(Icons.print_outlined),
+                    trailing: const Icon(Symbols.print_rounded),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PrintScreen(lot))),
                   ),
               ]),

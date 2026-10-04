@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../format.dart';
 import '../ui.dart';
@@ -101,8 +102,8 @@ class _EditableFieldState extends State<EditableField> {
               child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
             )
           else ...[
-            IconButton.filled(tooltip: 'Salva', onPressed: _save, icon: const Icon(Icons.check)),
-            IconButton(tooltip: 'Annulla', onPressed: () => setState(() => _editing = false), icon: const Icon(Icons.close)),
+            IconButton.filled(tooltip: 'Salva', onPressed: _save, icon: const Icon(Symbols.check_rounded)),
+            IconButton(tooltip: 'Annulla', onPressed: () => setState(() => _editing = false), icon: const Icon(Symbols.close_rounded)),
           ],
         ]),
       ]);
@@ -144,7 +145,7 @@ class EditableTap extends StatelessWidget {
             if (enabled)
               const Padding(
                 padding: EdgeInsets.only(left: 6, top: 2),
-                child: Icon(Icons.edit_outlined, size: 17, color: C.faint),
+                child: Icon(Symbols.edit_rounded, size: 17, color: C.faint),
               ),
           ]),
         ),

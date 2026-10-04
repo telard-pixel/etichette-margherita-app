@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../ui.dart';
@@ -172,7 +173,7 @@ class _PrintScreenState extends State<PrintScreen> {
                 IconButton.outlined(
                   tooltip: 'Meno',
                   onPressed: _copies > 1 ? () => setState(() => _copies--) : null,
-                  icon: const Icon(Icons.remove),
+                  icon: const Icon(Symbols.remove_rounded),
                 ),
                 SizedBox(
                   width: 44,
@@ -181,7 +182,7 @@ class _PrintScreenState extends State<PrintScreen> {
                 IconButton.outlined(
                   tooltip: 'Più',
                   onPressed: _copies < 20 ? () => setState(() => _copies++) : null,
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Symbols.add_rounded),
                 ),
               ]),
             ),
@@ -208,7 +209,7 @@ class _PrintScreenState extends State<PrintScreen> {
           if (_waiting) _queueCard() else
             FilledButton.icon(
               onPressed: _png == null || _sending ? null : _print,
-              icon: const Icon(Icons.print),
+              icon: const Icon(Symbols.print_rounded),
               label: Text(_copies == 1 ? 'Stampa' : 'Stampa $_copies copie'),
             ),
           const SizedBox(height: 8),
@@ -232,12 +233,12 @@ class _PrintScreenState extends State<PrintScreen> {
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
-          const Icon(Icons.print, color: C.accentOnDark),
+          const Icon(Symbols.print_rounded, color: C.accentOnDark),
         ]),
         const SizedBox(height: 12),
         LinearProgressIndicator(
           value: printing ? null : (1 - seconds / 8).clamp(0, 1).toDouble(),
-          backgroundColor: const Color(0xFF2A3A55),
+          backgroundColor: const Color(0xFF2E3748),
           color: C.accentOnDark,
           minHeight: 6,
           borderRadius: BorderRadius.circular(3),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../format.dart';
@@ -58,7 +59,7 @@ class _PrintOptionsSheetState extends State<_PrintOptionsSheet> {
             IconButton.outlined(
               tooltip: 'Meno',
               onPressed: _copies > 1 ? () => setState(() => _copies--) : null,
-              icon: const Icon(Icons.remove),
+              icon: const Icon(Symbols.remove_rounded),
             ),
             SizedBox(
               width: 40,
@@ -67,7 +68,7 @@ class _PrintOptionsSheetState extends State<_PrintOptionsSheet> {
             IconButton.outlined(
               tooltip: 'Più',
               onPressed: _copies < 20 ? () => setState(() => _copies++) : null,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Symbols.add_rounded),
             ),
           ]),
           if (needsChoice) ...[
@@ -80,7 +81,7 @@ class _PrintOptionsSheetState extends State<_PrintOptionsSheet> {
             ),
             const SizedBox(height: 8),
             _Choice(
-              icon: Icons.event,
+              icon: Symbols.event_rounded,
               title: 'Tieni le date di allora',
               subtitle: 'Ognuna con il suo lotto interno e la data della foto',
               selected: _opening == false,
@@ -88,7 +89,7 @@ class _PrintOptionsSheetState extends State<_PrintOptionsSheet> {
             ),
             const SizedBox(height: 8),
             _Choice(
-              icon: Icons.fiber_new_outlined,
+              icon: Symbols.fiber_new_rounded,
               title: 'Apertura oggi ${itDate(isoDay(today()))}',
               subtitle: 'Lotti interni nuovi con la data di oggi, con il lotto del fornitore',
               selected: _opening == true,
@@ -98,7 +99,7 @@ class _PrintOptionsSheetState extends State<_PrintOptionsSheet> {
           const SizedBox(height: 18),
           FilledButton.icon(
             onPressed: needsChoice && _opening == null ? null : () => Navigator.pop(context, (_copies, _opening == true)),
-            icon: const Icon(Icons.print),
+            icon: const Icon(Symbols.print_rounded),
             label: Text(_copies == 1 ? 'Stampa' : 'Stampa ($_copies copie ciascuna)'),
           ),
         ]),
@@ -134,7 +135,7 @@ class _Choice extends StatelessWidget {
                   Text(subtitle, style: const TextStyle(fontSize: 12, color: C.muted)),
                 ]),
               ),
-              Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? C.blue : C.faint),
+              Icon(selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded, color: selected ? C.blue : C.faint),
             ]),
           ),
         ),
@@ -209,10 +210,10 @@ class _MultiPrintScreenState extends State<_MultiPrintScreen> {
     final printing = _job['stato'] == 'in_stampa';
     final seconds = _job['parte_tra_secondi'] as int? ?? 0;
     final (icon, color, title) = switch (_job['stato']) {
-      'stampata' => (Icons.check_circle, C.okFg, 'Stampate'),
-      'annullata' => (Icons.cancel_outlined, C.muted, 'Stampa annullata'),
-      'errore' => (Icons.error_outline, C.badFg, 'Stampa non riuscita'),
-      _ => (Icons.print, C.blue, printing ? 'Stampo…' : 'Stampo tra $seconds s'),
+      'stampata' => (Symbols.check_circle_rounded, C.okFg, 'Stampate'),
+      'annullata' => (Symbols.cancel_rounded, C.muted, 'Stampa annullata'),
+      'errore' => (Symbols.error_rounded, C.badFg, 'Stampa non riuscita'),
+      _ => (Symbols.print_rounded, C.blue, printing ? 'Stampo…' : 'Stampo tra $seconds s'),
     };
     return HeaderScaffold(
       header: NavyHeader(title: 'Stampa etichette', subtitle: '$count etichette · ${_job['copie']} copie ciascuna', back: true),

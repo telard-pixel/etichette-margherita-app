@@ -20,6 +20,9 @@ dependencies:
   open_filex: ^4.7.0
   device_info_plus: ^13.3.0
   web: ^1.1.1
+  # Icone Material Symbols arrotondate (4/10/2026): nella build restano
+  # solo quelle usate.
+  material_symbols_icons: ^4.2960.0
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../ui.dart';
@@ -76,7 +77,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   Widget _step(String title, String detail, {required bool done, required bool running}) {
-    final color = done ? C.okFg : (running ? C.blue : const Color(0xFF8A96A8));
+    final color = done ? C.okFg : (running ? C.infoFg : const Color(0xFFA39B8F));
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
         width: 30,
@@ -87,7 +88,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           border: Border.all(color: color, width: 2),
         ),
         child: done
-            ? const Icon(Icons.check, size: 18, color: Colors.white)
+            ? const Icon(Symbols.check_rounded, size: 18, color: Colors.white)
             : running
                 ? const Padding(
                     padding: EdgeInsets.all(6), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -130,11 +131,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
           ),
           const SizedBox(height: 12),
           Panel(padding: EdgeInsets.zero, 
-            color: const Color(0xFFF6F9FF),
+            color: C.infoTint,
             child: const Padding(
               padding: EdgeInsets.all(14),
               child: Row(children: [
-                Icon(Icons.send, color: C.blue, size: 20),
+                Icon(Symbols.send_rounded, color: C.infoFg, size: 20),
                 SizedBox(width: 12),
                 Expanded(child: Text('La foto compare anche nel gruppo Etichette cucina con il tuo nome')),
               ]),

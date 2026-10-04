@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../platform/platform.dart' as platform;
@@ -104,11 +105,11 @@ class _MoreScreenState extends State<MoreScreen> {
             padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text('Esporta archivio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           ),
-          MenuRow(icon: Icons.picture_as_pdf_outlined, title: 'PDF', subtitle: 'Con foto e lotto interno, da stampare',
+          MenuRow(icon: Symbols.picture_as_pdf_rounded, title: 'PDF', subtitle: 'Con foto e lotto interno, da stampare',
               onTap: () => Navigator.pop(context, '.pdf')),
-          MenuRow(icon: Icons.table_chart_outlined, title: 'Excel', subtitle: 'Un foglio per mese, con foto',
+          MenuRow(icon: Symbols.table_chart_rounded, title: 'Excel', subtitle: 'Un foglio per mese, con foto',
               onTap: () => Navigator.pop(context, '.xlsx')),
-          MenuRow(icon: Icons.description_outlined, title: 'CSV', subtitle: 'Tutte le colonne, senza foto',
+          MenuRow(icon: Symbols.description_rounded, title: 'CSV', subtitle: 'Tutte le colonne, senza foto',
               onTap: () => Navigator.pop(context, '.csv')),
           const SizedBox(height: 8),
         ]),
@@ -178,7 +179,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(api.userName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   Row(children: [
-                    Icon(api.isAdmin ? Icons.shield_outlined : Icons.person_outline, size: 14, color: C.muted),
+                    Icon(api.isAdmin ? Symbols.shield_rounded : Symbols.person_rounded, size: 14, color: C.muted),
                     const SizedBox(width: 4),
                     Text(api.isAdmin ? 'amministratore' : 'utente', style: const TextStyle(fontSize: 12.5, color: C.muted)),
                   ]),
@@ -196,7 +197,7 @@ class _MoreScreenState extends State<MoreScreen> {
             child: Column(children: [
               if (api.isAdmin) ...[
                 MenuRow(
-                  icon: Icons.group_outlined,
+                  icon: Symbols.group_rounded,
                   title: 'Utenti',
                   subtitle: _users.isEmpty ? 'Accessi, telefoni e PIN' : '${_users.length} utenti · $online collegati',
                   onTap: () async {
@@ -206,7 +207,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 ),
                 divider,
                 MenuRow(
-                  icon: Icons.dns_outlined,
+                  icon: Symbols.dns_rounded,
                   title: 'Macchine e stampa',
                   subtitle: 'Stato, coda di stampa, riavvii',
                   onTap: () async {
@@ -216,7 +217,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 ),
                 divider,
                 MenuRow(
-                  icon: Icons.download_outlined,
+                  icon: Symbols.download_rounded,
                   title: 'Esporta archivio',
                   subtitle: 'PDF, Excel o CSV con foto e lotto interno',
                   onTap: _chooseExport,
@@ -225,7 +226,7 @@ class _MoreScreenState extends State<MoreScreen> {
               ],
               if (!platform.isWebApp)
               MenuRow(
-                icon: Icons.system_update_outlined,
+                icon: Symbols.system_update_rounded,
                 title: update?.available == true ? 'Aggiornamento disponibile' : 'Aggiornamento',
                 subtitle: update == null
                     ? 'Controllo…'
@@ -245,7 +246,7 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           const SizedBox(height: 12),
           ],
-          Panel(padding: EdgeInsets.zero, child: MenuRow(icon: Icons.logout, title: 'Esci', danger: true, onTap: _logout)),
+          Panel(padding: EdgeInsets.zero, child: MenuRow(icon: Symbols.logout_rounded, title: 'Esci', danger: true, onTap: _logout)),
         ]),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../format.dart';
@@ -159,13 +160,13 @@ class _ItemScreenState extends State<ItemScreen> {
                   style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             ),
             MenuRow(
-              icon: Icons.event,
+              icon: Symbols.event_rounded,
               title: 'Tieni il ${itDate(day)}',
               subtitle: 'Lotto interno ${lot['codice']}',
               onTap: () => Navigator.pop(context, 'tieni'),
             ),
             MenuRow(
-              icon: Icons.fiber_new_outlined,
+              icon: Symbols.fiber_new_rounded,
               title: 'Apertura oggi ${itDate(todayIso)}',
               subtitle: 'Lotto interno nuovo con la data di oggi'
                   '${lot['lotto_fornitore'] != null ? ' · lotto fornitore ${lot['lotto_fornitore']}' : ''}',
@@ -195,8 +196,8 @@ class _ItemScreenState extends State<ItemScreen> {
         showDragHandle: true,
         builder: (context) => SafeArea(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            MenuRow(icon: Icons.event, title: 'Cambia la data', onTap: () => Navigator.pop(context, 'scegli')),
-            MenuRow(icon: Icons.event_busy, title: 'Togli la scadenza', subtitle: 'L\'etichetta non ne ha una',
+            MenuRow(icon: Symbols.event_rounded, title: 'Cambia la data', onTap: () => Navigator.pop(context, 'scegli')),
+            MenuRow(icon: Symbols.event_busy_rounded, title: 'Togli la scadenza', subtitle: 'L\'etichetta non ne ha una',
                 onTap: () => Navigator.pop(context, 'togli')),
             const SizedBox(height: 8),
           ]),
@@ -229,7 +230,7 @@ class _ItemScreenState extends State<ItemScreen> {
   Widget _menu() => PopupMenuButton<String>(
         tooltip: 'Altre azioni',
         style: IconButton.styleFrom(backgroundColor: const Color(0x8C1B2333)),
-        icon: const Icon(Icons.more_horiz, color: Colors.white),
+        icon: const Icon(Symbols.more_horiz_rounded, color: Colors.white),
         onSelected: (v) {
           if (v == 'foto') _addPhoto();
           if (v == 'riesamina') _reexamine();
@@ -280,7 +281,7 @@ class _ItemScreenState extends State<ItemScreen> {
                 top: top + 12,
                 left: 16,
                 child: HeaderButton(
-                  icon: Icons.arrow_back,
+                  icon: Symbols.arrow_back_rounded,
                   tooltip: 'Indietro',
                   color: const Color(0x8C1B2333),
                   onPressed: () => Navigator.maybePop(context),
@@ -391,7 +392,7 @@ class _ItemScreenState extends State<ItemScreen> {
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: s['lotto_interno'] == null ? null : () => _printLabel(s['lotto_interno'] as Map<String, dynamic>),
-                  icon: const Icon(Icons.print_outlined),
+                  icon: const Icon(Symbols.print_rounded),
                   label: const Text('Stampa etichetta'),
                 ),
               ]),
@@ -435,7 +436,7 @@ class _InternalLotCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(color: C.accentOnDark.withValues(alpha: .15), borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.sell_outlined, color: C.accentOnDark, size: 22),
+            child: const Icon(Symbols.sell_rounded, color: C.accentOnDark, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
