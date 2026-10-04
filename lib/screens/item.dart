@@ -44,6 +44,9 @@ class _ItemScreenState extends State<ItemScreen> {
     // Corretta altrove (su Telegram con /correggi, o da un altro telefono):
     // la scheda aperta si aggiorna da sola.
     archiveChanged.addListener(_load);
+    // La foto parte subito, insieme ai dati della scheda: prima si aspettava
+    // la scheda e solo dopo cominciava la foto (4/10/2026).
+    prefetchPhoto(widget.itemId, PhotoSize.media);
     _load();
   }
 

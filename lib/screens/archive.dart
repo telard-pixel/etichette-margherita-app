@@ -162,6 +162,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _more = paged && (body['altre'] == true || (byDay && items.isNotEmpty && items.length < total));
       });
       _schedulePoll();
+      _warmUp(items);
     } on ApiError catch (e) {
       if (!mounted || request != _request) return;
       setState(() {
@@ -169,6 +170,20 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _loading = false;
       });
       _schedulePoll(); // senza rete si riprova, piu' piano
+    }
+  }
+
+  /// Le prime schede si aprono di solito subito: le loro foto medie si
+  /// scaricano gia' adesso, due alla volta, dopo le miniature in vista.
+  /// Le gia' scaricate costano solo un controllo in memoria.
+  Future<void> _warmUp(List<Map<String, dynamic>> items) async {
+    final ids = [
+      for (final s in items.take(8))
+        if (s['in_lavorazione'] != true) s['id'] as int,
+    ];
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    for (var i = 0; i < ids.length && mounted; i += 2) {
+      await Future.wait([for (final id in ids.skip(i).take(2)) prefetchPhoto(id, PhotoSize.media)]);
     }
   }
 
@@ -411,6 +426,9 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                 return false;
               },
               child: ListView.separated(
+                // Le schede poco sotto lo schermo si preparano gia' (foto
+                // comprese): scorrendo compaiono pronte.
+                scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 itemCount: _items.length + (_more ? 1 : 0),
                 separatorBuilder: (_, _) => const SizedBox(height: 10),

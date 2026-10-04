@@ -354,7 +354,7 @@ const divider = Divider(height: 1, thickness: 1, color: C.line);
 enum PhotoSize { mini, media, full }
 
 /// Foto gia' scaricate, per non riscaricarle a ogni scorrimento dell'elenco.
-/// In memoria al massimo 150; sul telefono restano anche su disco.
+/// In memoria al massimo 250; sul telefono restano anche su disco.
 final Map<String, Uint8List> _photoCache = {};
 final Map<String, Future<Uint8List>> _photoLoading = {};
 
@@ -377,11 +377,16 @@ Future<Uint8List> _loadPhoto(int itemId, PhotoSize size, int? extraId) {
       writePhotoCache(key, data);
     }
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
-    if (_photoCache.length >= 150) _photoCache.remove(_photoCache.keys.first);
+    if (_photoCache.length >= 250) _photoCache.remove(_photoCache.keys.first);
     _photoCache[key] = bytes;
     return bytes;
   }().whenComplete(() => _photoLoading.remove(key));
 }
+
+/// Comincia a scaricare una foto prima che serva (scheda che si sta aprendo,
+/// prime schede dell'elenco): quando arriva il suo riquadro e' gia' pronta.
+Future<void> prefetchPhoto(int itemId, PhotoSize size) =>
+    _loadPhoto(itemId, size, null).then((_) {}, onError: (_) {});
 
 /// Gia' scaricata in questa misura? (Per mostrarla subito, senza attesa.)
 Uint8List? _photoNow(int itemId, PhotoSize size, int? extraId) => _photoCache['$itemId:${extraId ?? 0}:${size.name}'];
@@ -418,6 +423,9 @@ class ItemPhoto extends StatefulWidget {
 class _ItemPhotoState extends State<ItemPhoto> {
   Uint8List? _data;
   bool _failed = false;
+  /// In vista c'e' la miniatura dell'elenco, ingrandita, mentre arriva la
+  /// versione media: la foto compare subito invece del riquadro vuoto.
+  bool _preview = false;
 
   @override
   void initState() {
@@ -441,9 +449,19 @@ class _ItemPhotoState extends State<ItemPhoto> {
     final w = widget;
     final key = _key;
     _data = _photoNow(w.itemId, w.size, w.extraId);
-    if (_data == null) {
+    _preview = false;
+    if (_data == null && w.size != PhotoSize.mini) {
+      _data = _photoNow(w.itemId, PhotoSize.mini, w.extraId);
+      _preview = _data != null;
+    }
+    if (_data == null || _preview) {
       _loadPhoto(w.itemId, w.size, w.extraId).then((d) {
-        if (mounted && key == _key) setState(() => _data ??= d);
+        if (mounted && key == _key && (_data == null || _preview)) {
+          setState(() {
+            _data = d;
+            _preview = false;
+          });
+        }
       }, onError: (_) {
         if (mounted && key == _key && _data == null) setState(() => _failed = true);
       });
