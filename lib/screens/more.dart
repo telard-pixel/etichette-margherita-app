@@ -71,7 +71,7 @@ class _MoreScreenState extends State<MoreScreen> {
           Dot(up == null ? C.faint : (up ? C.green : C.red)),
           const SizedBox(width: 10),
           Expanded(child: Text(name, style: const TextStyle(fontSize: 14.5))),
-          Text(detail, style: const TextStyle(color: C.muted, fontSize: 12)),
+          Text(detail, style: TextStyle(color: C.muted, fontSize: 12)),
         ]),
       );
 
@@ -181,7 +181,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   Row(children: [
                     Icon(api.isAdmin ? Symbols.shield_rounded : Symbols.person_rounded, size: 14, color: C.muted),
                     const SizedBox(width: 4),
-                    Text(api.isAdmin ? 'amministratore' : 'utente', style: const TextStyle(fontSize: 12.5, color: C.muted)),
+                    Text(api.isAdmin ? 'amministratore' : 'utente', style: TextStyle(fontSize: 12.5, color: C.muted)),
                   ]),
                 ]),
               ),

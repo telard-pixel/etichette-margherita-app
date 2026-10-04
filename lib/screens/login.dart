@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: EdgeInsets.zero,
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: C.navy,
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
               ),
@@ -102,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: C.sand,
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(Symbols.sell_rounded, color: C.navy, size: 32),
+                  child: const Icon(Symbols.sell_rounded, color: C.onSand, size: 32),
                 ),
                 const SizedBox(height: 14),
                 const Text('Etichette Margherita',
@@ -136,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 16,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: i < _pin.length ? C.navy : null,
+                          color: i < _pin.length ? C.ink : null,
                           border: i < _pin.length ? null : Border.all(color: const Color(0xFFA39B8F), width: 2),
                         ),
                       ),
@@ -145,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: C.badFg)),
+                    child: Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: C.badFg)),
                   ),
                 const SizedBox(height: 12),
                 for (final row in const [
@@ -165,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       : const Text('Entra'),
                 ),
                 const SizedBox(height: 8),
-                const Text('Resti collegato su questo telefono per 90 giorni',
+                Text('Resti collegato su questo telefono per 90 giorni',
                     textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
               ]),
             ),

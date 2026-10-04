@@ -332,7 +332,7 @@ class _ItemScreenState extends State<ItemScreen> {
                           '#${s['id']} · ${whenArrived(s['arrivata_alle'])} · ${s['inviata_da'] ?? ''}${s['dall_app'] == true ? ' · app' : ''}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: C.muted),
+                          style: TextStyle(fontSize: 12, color: C.muted),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -367,7 +367,7 @@ class _ItemScreenState extends State<ItemScreen> {
                               fontWeight: FontWeight.w500,
                               color: s['scadenza'] == null ? C.faint : null)),
                     ),
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: divider),
+                    Padding(padding: EdgeInsets.symmetric(vertical: 10), child: divider),
                     EditableField(
                       label: 'Produttore',
                       value: s['produttore'] as String?,
@@ -386,7 +386,7 @@ class _ItemScreenState extends State<ItemScreen> {
                       editable
                           ? 'Tocca un campo per correggerlo: la modifica resta registrata con il tuo nome'
                           : 'Si potrà correggere quando la lettura è finita',
-                      style: const TextStyle(fontSize: 12, color: C.muted),
+                      style: TextStyle(fontSize: 12, color: C.muted),
                     ),
                   ]),
                 ),

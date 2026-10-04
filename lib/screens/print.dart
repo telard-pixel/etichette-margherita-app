@@ -147,7 +147,7 @@ class _PrintScreenState extends State<PrintScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: C.border),
-              boxShadow: const [BoxShadow(color: C.line, offset: Offset(0, 2))],
+              boxShadow: [BoxShadow(color: C.line, offset: Offset(0, 2))],
             ),
             padding: const EdgeInsets.all(10),
             child: _png != null
@@ -162,7 +162,7 @@ class _PrintScreenState extends State<PrintScreen> {
                   ),
           ),
           const SizedBox(height: 6),
-          const Text('Anteprima come esce dalla stampante',
+          Text('Anteprima come esce dalla stampante',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
           const SizedBox(height: 16),
           Panel(padding: EdgeInsets.zero, 
@@ -202,7 +202,7 @@ class _PrintScreenState extends State<PrintScreen> {
               _printerReady == null
                   ? 'Stampante: controllo…'
                   : (_printerReady! ? 'Stampante collegata' : 'Stampante non collegata'),
-              style: const TextStyle(color: C.muted),
+              style: TextStyle(color: C.muted),
             ),
           ]),
           const SizedBox(height: 20),
@@ -213,7 +213,7 @@ class _PrintScreenState extends State<PrintScreen> {
               label: Text(_copies == 1 ? 'Stampa' : 'Stampa $_copies copie'),
             ),
           const SizedBox(height: 8),
-          const Text('Premere più volte somma le copie (massimo 20)',
+          Text('Premere più volte somma le copie (massimo 20)',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
         ]),
       );

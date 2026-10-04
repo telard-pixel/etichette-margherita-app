@@ -143,7 +143,7 @@ class EditableTap extends StatelessWidget {
               ]),
             ),
             if (enabled)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 6, top: 2),
                 child: Icon(Symbols.edit_rounded, size: 17, color: C.faint),
               ),
@@ -204,7 +204,7 @@ class _AllergenSheetState extends State<_AllergenSheet> {
                 FilterChip(
                   label: Text(a),
                   selected: _chosen.contains(a),
-                  labelStyle: TextStyle(color: _chosen.contains(a) ? Colors.white : C.navy),
+                  labelStyle: TextStyle(color: _chosen.contains(a) ? C.onSelected : C.ink),
                   onSelected: (on) => setState(() => on ? _chosen.add(a) : _chosen.remove(a)),
                 ),
             ]),
@@ -231,7 +231,7 @@ class _AllergenSheetState extends State<_AllergenSheet> {
               ),
             ]),
             const SizedBox(height: 6),
-            const Text('"Nessuno" = etichetta controllata, non dichiara allergeni',
+            Text('"Nessuno" = etichetta controllata, non dichiara allergeni',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
           ]),
         ),

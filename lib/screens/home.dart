@@ -113,7 +113,7 @@ class _BottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: C.cardBorder))),
+        decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.cardBorder))),
         padding: EdgeInsets.fromLTRB(6, 6, 6, MediaQuery.of(context).padding.bottom + 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           for (var i = 0; i < _items.length; i++) Expanded(child: i == 2 ? _camera(i) : _item(i)),
@@ -142,7 +142,7 @@ class _BottomNav extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(label,
-                style: TextStyle(fontSize: 11.5, color: on ? C.navy : C.muted, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
+                style: TextStyle(fontSize: 11.5, color: on ? C.ink : C.muted, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
           ]),
         ),
       ),
@@ -168,13 +168,13 @@ class _BottomNav extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
                 boxShadow: const [BoxShadow(color: Color(0x2E1B2333), blurRadius: 14, offset: Offset(0, 6))],
               ),
-              child: const Icon(Symbols.photo_camera_rounded, color: C.navy, size: 26),
+              child: const Icon(Symbols.photo_camera_rounded, color: C.onSand, size: 26),
             ),
           ),
           Transform.translate(
             offset: const Offset(0, -6),
             child: Text('Scatta',
-                style: TextStyle(fontSize: 11.5, color: on ? C.navy : C.muted, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
+                style: TextStyle(fontSize: 11.5, color: on ? C.ink : C.muted, fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
           ),
         ]),
       ),

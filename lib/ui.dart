@@ -8,58 +8,100 @@ import 'platform/platform.dart' show readPhotoCache, writePhotoCache, forgetPhot
 /// Colori e forme dell'anteprima approvata (versione 3, 4/10/2026): fondo
 /// bianco caldo, inchiostro blu notte, accento beige sabbia; schede bianche
 /// con un bordo sottile (piu' leggero da disegnare di un'ombra).
+///
+/// Ogni colore ha la sua versione scura: l'app segue il tema del telefono o
+/// del computer ([dark] lo imposta EtichetteApp). Per questo non sono
+/// costanti: si leggono a ogni disegno.
 class C {
-  /// Inchiostro: testi, chip scelte, riquadri scuri (lotto interno).
-  static const navy = Color(0xFF1B2333);
-  static const ground = Color(0xFFF6F5F2);
-  static const line = Color(0xFFEFECE6);
-  static const border = Color(0xFFE2DED6);
-  static const cardBorder = Color(0xFFECE9E3);
-  static const muted = Color(0xFF626B7A);
-  static const faint = Color(0xFF9AA0AA);
+  static bool dark = false;
+  static Color _p(int light, int night) => Color(dark ? night : light);
+
+  /// Inchiostro: testi e icone.
+  static Color get ink => _p(0xFF1B2333, 0xFFECE8E1);
+  /// Riquadri scuri con scritte bianche (lotto interno, stampa, accesso).
+  static Color get navy => _p(0xFF1B2333, 0xFF2A2F39);
+  /// Schede, barre, campi: bianco di giorno.
+  static Color get surface => _p(0xFFFFFFFF, 0xFF1E2026);
+  static Color get ground => _p(0xFFF6F5F2, 0xFF131417);
+  static Color get line => _p(0xFFEFECE6, 0xFF262930);
+  static Color get border => _p(0xFFE2DED6, 0xFF3A3D44);
+  static Color get cardBorder => _p(0xFFECE9E3, 0xFF2B2E35);
+  static Color get muted => _p(0xFF626B7A, 0xFFA3A9B3);
+  static Color get faint => _p(0xFF9AA0AA, 0xFF6F757F);
   static const onNavyMuted = Color(0xFFA9B2C3);
-  /// Accento come testo, icona o bordo sul chiaro: nocciola, leggibile.
-  static const blue = Color(0xFF8C6239);
+  /// Accento come testo, icona o bordo: nocciola, leggibile sul fondo.
+  static Color get blue => _p(0xFF8C6239, 0xFFD9B98C);
   /// Accento sui riquadri scuri.
   static const accentOnDark = Color(0xFFE6D3B3);
-  /// Beige sabbia dei tasti pieni (Scatta, Stampa): sopra va l'inchiostro.
+  /// Beige sabbia dei tasti pieni (Scatta, Stampa): sopra va [onSand].
   static const sand = Color(0xFFD9C4A3);
-  static const sandSoft = Color(0xFFEFE4D2);
-  static const sandText = Color(0xFF7A5A2E);
-  static const chipBg = Color(0xFFF2F0EB);
-  static const okBg = Color(0xFFE4F2E9), okFg = Color(0xFF1F6B41);
-  static const warnBg = Color(0xFFFDF1DE), warnFg = Color(0xFF8A4A00);
-  static const badBg = Color(0xFFFCE7E2), badFg = Color(0xFFA3301B);
+  static const onSand = Color(0xFF1B2333);
+  static Color get sandSoft => _p(0xFFEFE4D2, 0xFF3B3327);
+  static Color get sandText => _p(0xFF7A5A2E, 0xFFE3CBA4);
+  /// Chip e scelte attive: blu notte di giorno, sabbia di notte.
+  static Color get selected => dark ? sand : const Color(0xFF1B2333);
+  static Color get onSelected => dark ? onSand : Colors.white;
+  static Color get chipBg => _p(0xFFF2F0EB, 0xFF2A2D33);
+  static Color get okBg => _p(0xFFE4F2E9, 0xFF1F3A2B);
+  static Color get okFg => _p(0xFF1F6B41, 0xFF93D4AE);
+  static Color get warnBg => _p(0xFFFDF1DE, 0xFF3E2E14);
+  static Color get warnFg => _p(0xFF8A4A00, 0xFFF0C27D);
+  static Color get badBg => _p(0xFFFCE7E2, 0xFF45221C);
+  static Color get badFg => _p(0xFFA3301B, 0xFFF4A08F);
   /// Ottanio (era azzurro fino al 4/10/2026): in lettura, admin, giorni.
-  static const infoBg = Color(0xFFDFECEA), infoFg = Color(0xFF2C5E58);
-  static const infoTint = Color(0xFFF4F9F8);
-  static const green = Color(0xFF1E8E4E), red = Color(0xFFC0362C);
+  static Color get infoBg => _p(0xFFDFECEA, 0xFF1A3734);
+  static Color get infoFg => _p(0xFF2C5E58, 0xFF8FD0C6);
+  static Color get infoTint => _p(0xFFF4F9F8, 0xFF172624);
+  /// Scheda ancora in lettura, nell'elenco.
+  static Color get readingTint => _p(0xFFFAF9F6, 0xFF1A1B1F);
+  static Color get photoBg => _p(0xFFF1EEE6, 0xFF24252A);
+  static Color get photoIcon => _p(0xFFADA493, 0xFF6E6A62);
+  static Color get green => _p(0xFF1E8E4E, 0xFF5CC48A);
+  static Color get red => _p(0xFFC0362C, 0xFFF08A7E);
   /// Contatori in alto: quale riquadro colorato usare (vedi [StatStrip]).
-  static const statWarn = warnFg, statBad = badFg;
+  static const statWarn = Color(0x01FFA000), statBad = Color(0x01FF3000);
 }
 
 const kFont = 'PlusJakartaSans';
 
 const mono = TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600);
 
-ThemeData appTheme() {
-  final scheme = ColorScheme.fromSeed(seedColor: C.sand, primary: C.blue, surface: Colors.white);
+/// Il tema chiaro o quello scuro: i colori di [C] nella versione chiesta.
+ThemeData appTheme({bool dark = false}) {
+  final saved = C.dark;
+  C.dark = dark;
+  try {
+    return _theme(dark ? Brightness.dark : Brightness.light);
+  } finally {
+    C.dark = saved;
+  }
+}
+
+ThemeData _theme(Brightness brightness) {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: C.sand,
+    brightness: brightness,
+    primary: C.blue,
+    surface: C.surface,
+    onSurface: C.ink,
+  );
   final radius14 = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
   return ThemeData(
     useMaterial3: true,
+    brightness: brightness,
     fontFamily: kFont,
     colorScheme: scheme,
     scaffoldBackgroundColor: C.ground,
-    appBarTheme: const AppBarTheme(backgroundColor: C.navy, foregroundColor: Colors.white, elevation: 0),
+    canvasColor: C.ground,
+    dividerColor: C.line,
+    appBarTheme: AppBarTheme(backgroundColor: C.navy, foregroundColor: Colors.white, elevation: 0),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: C.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: C.border)),
-      enabledBorder:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: C.border)),
-      focusedBorder:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: C.blue, width: 2)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.border)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.border)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.blue, width: 2)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -67,34 +109,39 @@ ThemeData appTheme() {
         shape: radius14,
         elevation: 0,
         backgroundColor: C.sand,
-        foregroundColor: C.navy,
+        foregroundColor: C.onSand,
         textStyle: const TextStyle(fontFamily: kFont, fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
-        foregroundColor: C.navy,
-        backgroundColor: Colors.white,
-        side: const BorderSide(color: C.border),
+        foregroundColor: C.ink,
+        backgroundColor: C.surface,
+        side: BorderSide(color: C.border),
         shape: radius14,
         textStyle: const TextStyle(fontFamily: kFont, fontSize: 16, fontWeight: FontWeight.w600),
       ),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: Colors.white,
-      selectedColor: C.navy,
-      side: const BorderSide(color: C.border),
+      backgroundColor: C.surface,
+      selectedColor: C.selected,
+      side: BorderSide(color: C.border),
       shape: const StadiumBorder(),
-      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: C.navy),
-      secondaryLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white),
+      labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: C.ink),
+      secondaryLabelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: C.onSelected),
       showCheckmark: false,
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
-    dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+    dialogTheme: DialogThemeData(
+      backgroundColor: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(backgroundColor: C.surface),
+    popupMenuTheme: PopupMenuThemeData(color: C.surface),
   );
 }
 
@@ -113,7 +160,7 @@ class Panel extends StatelessWidget {
     final inner = Padding(padding: padding, child: child);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: color ?? Colors.white,
+        color: color ?? C.surface,
         borderRadius: BorderRadius.circular(18),
         border: border ?? (color == C.navy ? null : Border.all(color: C.cardBorder)),
       ),
@@ -140,7 +187,7 @@ class NavyHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent),
+        value: (C.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(statusBarColor: Colors.transparent),
         child: Container(
           color: C.ground,
           padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 14),
@@ -155,11 +202,11 @@ class NavyHeader extends StatelessWidget {
                   Text(title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: C.navy, fontSize: back ? 22 : 28, fontWeight: FontWeight.w800, letterSpacing: -.6)),
+                      style: TextStyle(color: C.ink, fontSize: back ? 22 : 28, fontWeight: FontWeight.w800, letterSpacing: -.6)),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: C.muted, fontSize: 13)),
+                        style: TextStyle(color: C.muted, fontSize: 13)),
                   ],
                 ]),
               ),
@@ -187,11 +234,11 @@ class HeaderButton extends StatelessWidget {
           tooltip: tooltip,
           onPressed: onPressed,
           style: IconButton.styleFrom(
-            backgroundColor: color ?? Colors.white,
-            side: color == null ? const BorderSide(color: C.cardBorder) : null,
+            backgroundColor: color ?? C.surface,
+            side: color == null ? BorderSide(color: C.cardBorder) : null,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          icon: Icon(icon, color: color == null ? C.navy : Colors.white),
+          icon: Icon(icon, color: color == null ? C.ink : Colors.white),
         ),
       );
 }
@@ -205,7 +252,7 @@ class StatStrip extends StatelessWidget {
   static (Color bg, Color fg, Border? border) _look(Color color) {
     if (color == C.statWarn) return (C.warnBg, C.warnFg, null);
     if (color == C.statBad) return (C.badBg, C.badFg, null);
-    return (Colors.white, C.navy, Border.all(color: C.cardBorder));
+    return (C.surface, C.ink, Border.all(color: C.cardBorder));
   }
 
   @override
@@ -221,7 +268,7 @@ class StatStrip extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(stats[i].$1, style: TextStyle(color: fg, fontSize: 23, fontWeight: FontWeight.w800, letterSpacing: -.4)),
                   Text(stats[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: fg == C.navy ? C.muted : fg, fontSize: 12, fontWeight: FontWeight.w500)),
+                      style: TextStyle(color: fg == C.ink ? C.muted : fg, fontSize: 12, fontWeight: FontWeight.w500)),
                 ]),
               );
             }),
@@ -238,12 +285,12 @@ class Pill extends StatelessWidget {
 
   factory Pill.status(Map<String, dynamic> s) {
     if (s['in_archiviazione'] == true) {
-      return const Pill('In archiviazione…', bg: C.infoBg, fg: C.infoFg, icon: Symbols.cloud_upload_rounded);
+      return Pill('In archiviazione…', bg: C.infoBg, fg: C.infoFg, icon: Symbols.cloud_upload_rounded);
     }
-    if (s['in_lavorazione'] == true) return const Pill('In lettura…', bg: C.infoBg, fg: C.infoFg, icon: Symbols.sync_rounded);
-    if (s['fallita'] == true) return const Pill('Non riuscita', bg: C.badBg, fg: C.badFg);
-    if (s['da_rivedere'] == true) return const Pill('Da rivedere', bg: C.warnBg, fg: C.warnFg);
-    return const Pill('Archiviata', bg: C.okBg, fg: C.okFg);
+    if (s['in_lavorazione'] == true) return Pill('In lettura…', bg: C.infoBg, fg: C.infoFg, icon: Symbols.sync_rounded);
+    if (s['fallita'] == true) return Pill('Non riuscita', bg: C.badBg, fg: C.badFg);
+    if (s['da_rivedere'] == true) return Pill('Da rivedere', bg: C.warnBg, fg: C.warnFg);
+    return Pill('Archiviata', bg: C.okBg, fg: C.okFg);
   }
 
   @override
@@ -266,17 +313,18 @@ class LotTag extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: C.chipBg, borderRadius: BorderRadius.circular(8)),
-        child: Text(code, style: mono.copyWith(fontSize: size, color: C.navy)),
+        child: Text(code, style: mono.copyWith(fontSize: size, color: C.ink)),
       );
 }
 
 class SectionLabel extends StatelessWidget {
-  const SectionLabel(this.text, {super.key, this.color = C.muted});
+  const SectionLabel(this.text, {super.key, this.color});
   final String text;
-  final Color color;
+  /// Senza: grigio ([C.muted]).
+  final Color? color;
   @override
   Widget build(BuildContext context) => Text(text.toUpperCase(),
-      style: TextStyle(fontSize: 11.5, letterSpacing: .9, fontWeight: FontWeight.w600, color: color));
+      style: TextStyle(fontSize: 11.5, letterSpacing: .9, fontWeight: FontWeight.w600, color: color ?? C.muted));
 }
 
 class Initials extends StatelessWidget {
@@ -284,7 +332,8 @@ class Initials extends StatelessWidget {
   final String name;
   final double size;
   final int index;
-  static const _palette = [(C.infoBg, C.infoFg), (C.okBg, C.okFg), (C.warnBg, C.warnFg), (C.chipBg, Color(0xFF3B4656))];
+  static List<(Color, Color)> get _palette =>
+      [(C.infoBg, C.infoFg), (C.okBg, C.okFg), (C.warnBg, C.warnFg), (C.chipBg, C.ink)];
   @override
   Widget build(BuildContext context) {
     final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
@@ -320,7 +369,7 @@ class MenuRow extends StatelessWidget {
   final Widget? trailing;
   @override
   Widget build(BuildContext context) {
-    final color = danger ? C.badFg : C.navy;
+    final color = danger ? C.badFg : C.ink;
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -336,17 +385,17 @@ class MenuRow extends StatelessWidget {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: color)),
-              if (subtitle != null) Text(subtitle!, style: const TextStyle(fontSize: 12, color: C.muted)),
+              if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 12, color: C.muted)),
             ]),
           ),
-          trailing ?? (danger || onTap == null ? const SizedBox() : const Icon(Symbols.chevron_right_rounded, color: C.faint)),
+          trailing ?? (danger || onTap == null ? const SizedBox() : Icon(Symbols.chevron_right_rounded, color: C.faint)),
         ]),
       ),
     );
   }
 }
 
-const divider = Divider(height: 1, thickness: 1, color: C.line);
+Divider get divider => Divider(height: 1, thickness: 1, color: C.line);
 
 /// Misure di una foto: miniatura (elenco), media (scheda e galleria, poche
 /// centinaia di KB invece dei 3 MB dell'originale) e originale (solo quando
@@ -499,15 +548,15 @@ class PhotoPlaceholder extends StatelessWidget {
   final IconData icon;
   @override
   Widget build(BuildContext context) => ColoredBox(
-        color: const Color(0xFFF1EEE6),
-        child: Center(child: Icon(icon, color: const Color(0xFFADA493))),
+        color: C.photoBg,
+        child: Center(child: Icon(icon, color: C.photoIcon)),
       );
 }
 
 void toast(BuildContext context, String text, {bool error = false}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text), backgroundColor: error ? C.badFg : C.navy));
+    ..showSnackBar(SnackBar(content: Text(text), backgroundColor: error ? const Color(0xFFA3301B) : C.navy));
 }
 
 /// Esegue una richiesta e mostra l'errore, se c'e'. Null se fallita.
@@ -561,7 +610,7 @@ class ErrorRetry extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Symbols.cloud_off_rounded, size: 40, color: C.muted),
+            Icon(Symbols.cloud_off_rounded, size: 40, color: C.muted),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 12),

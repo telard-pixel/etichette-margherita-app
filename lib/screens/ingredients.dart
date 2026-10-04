@@ -151,7 +151,7 @@ class _IngredientSheetState extends State<_IngredientSheet> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _items.isEmpty
-                      ? const Center(child: Text('Nessuna scheda trovata', style: TextStyle(color: C.muted)))
+                      ? Center(child: Text('Nessuna scheda trovata', style: TextStyle(color: C.muted)))
                       : ListView.builder(
                           itemCount: _items.length,
                           itemBuilder: (context, index) {
@@ -168,9 +168,9 @@ class _IngredientSheetState extends State<_IngredientSheet> {
                                 ].join(' · '),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13, color: C.muted),
+                                style: TextStyle(fontSize: 13, color: C.muted),
                               ),
-                              trailing: const Icon(Symbols.add_circle_rounded, color: C.navy),
+                              trailing: Icon(Symbols.add_circle_rounded, color: C.ink),
                               onTap: () => Navigator.pop(
                                 context,
                                 Ingredient(name: name == null || name.isEmpty ? 'Scheda #${item['id']}' : name, lot: lot, itemId: item['id'] as int),

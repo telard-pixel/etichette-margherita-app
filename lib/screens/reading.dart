@@ -84,7 +84,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         height: 30,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: done || running ? color : Colors.white,
+          color: done || running ? color : C.surface,
           border: Border.all(color: color, width: 2),
         ),
         child: done
@@ -99,9 +99,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
         child: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: done || running ? C.navy : C.muted)),
+            Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: done || running ? C.ink : C.muted)),
             const SizedBox(height: 3),
-            Text(detail, style: const TextStyle(fontSize: 13, color: C.muted)),
+            Text(detail, style: TextStyle(fontSize: 13, color: C.muted)),
           ]),
         ),
       ),
@@ -132,7 +132,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 12),
           Panel(padding: EdgeInsets.zero, 
             color: C.infoTint,
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(14),
               child: Row(children: [
                 Icon(Symbols.send_rounded, color: C.infoFg, size: 20),
@@ -142,7 +142,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             ),
           ),
           if (_slow)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 12),
               child: Text('Ci sta mettendo più del solito: la scheda arriverà comunque in archivio e nel gruppo.',
                   style: TextStyle(color: C.warnFg)),
@@ -153,7 +153,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             child: const Text('Continua a scattare'),
           ),
           const SizedBox(height: 8),
-          const Text('Puoi chiudere: la scheda arriva lo stesso',
+          Text('Puoi chiudere: la scheda arriva lo stesso',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
         ]),
       );

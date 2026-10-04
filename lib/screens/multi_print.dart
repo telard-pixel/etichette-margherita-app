@@ -116,7 +116,7 @@ class _Choice extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Material(
-        color: selected ? C.sandSoft : Colors.white,
+        color: selected ? C.sandSoft : C.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: BorderSide(color: selected ? C.blue : C.border, width: selected ? 2 : 1),
@@ -127,12 +127,12 @@ class _Choice extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
-              Icon(icon, color: selected ? C.blue : C.navy),
+              Icon(icon, color: selected ? C.blue : C.ink),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: C.muted)),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: C.muted)),
                 ]),
               ),
               Icon(selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded, color: selected ? C.blue : C.faint),
@@ -225,7 +225,7 @@ class _MultiPrintScreenState extends State<_MultiPrintScreen> {
             Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             if ((_job['messaggio'] as String? ?? '').isNotEmpty) ...[
               const SizedBox(height: 4),
-              Text(_job['messaggio'] as String, textAlign: TextAlign.center, style: const TextStyle(color: C.muted)),
+              Text(_job['messaggio'] as String, textAlign: TextAlign.center, style: TextStyle(color: C.muted)),
             ],
             if (waiting) ...[
               const SizedBox(height: 14),

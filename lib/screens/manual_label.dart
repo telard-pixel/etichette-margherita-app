@@ -134,9 +134,9 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 56),
           padding: EdgeInsets.zero,
-          backgroundColor: selected ? C.navy : Colors.white,
-          foregroundColor: selected ? Colors.white : C.navy,
-          side: BorderSide(color: selected ? C.navy : C.border),
+          backgroundColor: selected ? C.selected : C.surface,
+          foregroundColor: selected ? C.onSelected : C.ink,
+          side: BorderSide(color: selected ? C.selected : C.border),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -172,8 +172,8 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 56),
                   padding: EdgeInsets.zero,
-                  backgroundColor: isOther ? C.navy : Colors.white,
-                  foregroundColor: isOther ? Colors.white : C.navy,
+                  backgroundColor: isOther ? C.selected : C.surface,
+                  foregroundColor: isOther ? C.onSelected : C.ink,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Text(isOther ? '${_day.day}/${_day.month}/${_day.year % 100}' : 'Altra…',
@@ -200,7 +200,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
           const SizedBox(height: 18),
           const SectionLabel('Ingredienti (facoltativo)'),
           const SizedBox(height: 4),
-          const Text('Per le preparazioni: i lotti degli ingredienti vengono stampati sull\'etichetta.',
+          Text('Per le preparazioni: i lotti degli ingredienti vengono stampati sull\'etichetta.',
               style: TextStyle(fontSize: 12.5, color: C.muted)),
           const SizedBox(height: 8),
           if (_ingredients.isNotEmpty)
@@ -244,7 +244,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
           SectionLabel('Lotti del ${itDate(isoDay(_day))}'),
           const SizedBox(height: 8),
           if (_lots.isEmpty)
-            const Text('Nessun lotto in questo giorno', style: TextStyle(color: C.muted))
+            Text('Nessun lotto in questo giorno', style: TextStyle(color: C.muted))
           else
             Panel(padding: EdgeInsets.zero, 
               child: Column(children: [

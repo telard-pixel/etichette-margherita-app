@@ -14,7 +14,12 @@ html = re.sub(r'<meta name="description" content="[^"]*">',
 html = re.sub(r'<meta name="apple-mobile-web-app-title" content="[^"]*">',
               '<meta name="apple-mobile-web-app-title" content="Etichette">', html)
 if 'name="theme-color"' not in html:
-    html = html.replace("</head>", '  <meta name="theme-color" content="#F6F5F2">\n</head>', 1)
+    html = html.replace(
+    "</head>",
+    '  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F6F5F2">\n'
+    '  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#131417">\n</head>',
+    1,
+)
 html = html.replace('<html>', '<html lang="it">', 1)
 
 # Diagnostica (2/10/2026, pagina bianca su iPhone): avvio, primo disegno ed

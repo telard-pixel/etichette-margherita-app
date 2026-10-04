@@ -70,7 +70,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
               Row(children: [
                 LotTag(s['lotto'] ?? '—'),
                 const SizedBox(width: 8),
-                Text(itDate(s['scadenza']), style: const TextStyle(fontSize: 13, color: C.muted)),
+                Text(itDate(s['scadenza']), style: TextStyle(fontSize: 13, color: C.muted)),
               ]),
             ]),
           ),
@@ -115,8 +115,8 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
                     ChoiceChip(
                       label: Text('$d giorni'),
                       selected: _days == d,
-                      labelStyle: TextStyle(color: _days == d ? Colors.white : C.navy),
-                      side: _days == d ? BorderSide.none : const BorderSide(color: C.border),
+                      labelStyle: TextStyle(color: _days == d ? C.onSelected : C.ink),
+                      side: _days == d ? BorderSide.none : BorderSide(color: C.border),
                       onSelected: (_) {
                         setState(() => _days = d);
                         _load();
@@ -125,7 +125,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
                 ]),
                 const SizedBox(height: 12),
                 if (groups.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 40),
                     child: Center(child: Text('Niente in scadenza', style: TextStyle(color: C.muted))),
                   )
@@ -140,7 +140,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
                           child: SectionLabel(groups[g].$1, color: groups[g].$2),
                         ),
                         for (var i = 0; i < groups[g].$3.length; i++) ...[
-                          if (i > 0) const Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
+                          if (i > 0) Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
                           _row(groups[g].$3[i]),
                         ],
                       ],

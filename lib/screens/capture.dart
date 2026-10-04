@@ -197,7 +197,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 ),
               ),
             const SizedBox(height: 10),
-            const Text('Inquadra l\'etichetta: lotto e scadenza devono essere leggibili. '
+            Text('Inquadra l\'etichetta: lotto e scadenza devono essere leggibili. '
                 'Più foto = stesso prodotto (es. coperchio col lotto).',
                 style: TextStyle(color: C.muted, fontSize: 13)),
             const SizedBox(height: 16),

@@ -65,10 +65,10 @@ class _UsersScreenState extends State<UsersScreen> {
     final active = u['attivo'] == true;
     final phones = (u['telefoni'] as List?)?.length ?? 0;
     final status = !active
-        ? const Pill('disattivato', bg: C.chipBg, fg: Color(0xFF3B4656))
+        ? Pill('disattivato', bg: C.chipBg, fg: C.ink)
         : phones > 0
             ? Pill(phones == 1 ? '1 telefono' : '$phones telefoni', bg: C.okBg, fg: C.okFg, icon: Symbols.smartphone_rounded)
-            : const Pill('non collegato', bg: C.chipBg, fg: Color(0xFF3B4656));
+            : Pill('non collegato', bg: C.chipBg, fg: C.ink);
     return InkWell(
       onTap: () async {
         await Navigator.push(context, MaterialPageRoute(builder: (_) => UserScreen(u, index: index)));
@@ -90,12 +90,12 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                   if (u['admin'] == true) ...[
                     const SizedBox(width: 6),
-                    const Pill('admin', bg: C.infoBg, fg: C.infoFg),
+                    Pill('admin', bg: C.infoBg, fg: C.infoFg),
                   ],
                 ]),
                 const SizedBox(height: 3),
                 Text('Ultimo accesso: ${lastSeen(u['ultimo_accesso'])} · ${u['foto_inviate'] ?? 0} foto dall\'app',
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.muted)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: C.muted)),
               ]),
             ),
             const SizedBox(width: 8),
@@ -125,13 +125,13 @@ class _UsersScreenState extends State<UsersScreen> {
                   padding: EdgeInsets.zero,
                   child: Column(children: [
                     for (var i = 0; i < users.length; i++) ...[
-                      if (i > 0) const Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
+                      if (i > 0) Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
                       _row(users[i], i),
                     ],
                   ]),
                 ),
                 const SizedBox(height: 10),
-                const Text('Tocca un utente per vedere i telefoni, cambiare il PIN o scollegarlo',
+                Text('Tocca un utente per vedere i telefoni, cambiare il PIN o scollegarlo',
                     textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
                 const SizedBox(height: 18),
                 FilledButton.icon(onPressed: _newUser, icon: const Icon(Symbols.add_rounded), label: const Text('Nuovo utente')),
@@ -294,7 +294,7 @@ class _UserScreenState extends State<UserScreen> {
             Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 12, color: C.muted)),
+            Text(label, style: TextStyle(fontSize: 12, color: C.muted)),
           ]),
         ),
       );
@@ -327,12 +327,12 @@ class _UserScreenState extends State<UserScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               const Padding(padding: EdgeInsets.fromLTRB(14, 12, 14, 0), child: SectionLabel('Telefoni collegati')),
               if (phones.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(14),
                   child: Text('Nessun telefono collegato', style: TextStyle(color: C.muted)),
                 ),
               for (var i = 0; i < phones.length; i++) ...[
-                if (i > 0) const Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
+                if (i > 0) Padding(padding: EdgeInsets.symmetric(horizontal: 14), child: divider),
                 MenuRow(
                   icon: Symbols.smartphone_rounded,
                   title: phones[i]['telefono'] as String? ?? 'telefono',
@@ -369,7 +369,7 @@ class _UserScreenState extends State<UserScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: C.badFg, side: const BorderSide(color: Color(0xFFEBC3BE))),
+                  style: OutlinedButton.styleFrom(foregroundColor: C.badFg, side: BorderSide(color: C.badBg)),
                   onPressed: phones.isEmpty ? null : _disconnect,
                   icon: const Icon(Symbols.logout_rounded),
                   label: const Text('Scollega'),
@@ -379,7 +379,7 @@ class _UserScreenState extends State<UserScreen> {
           ]),
           const SizedBox(height: 8),
           if (!_isMe)
-            const Text('"Scollega" lo fa uscire da tutti i telefoni: dovrà rientrare con il PIN',
+            Text('"Scollega" lo fa uscire da tutti i telefoni: dovrà rientrare con il PIN',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
         ]),
       ),

@@ -90,7 +90,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              Text(detail, style: const TextStyle(fontSize: 12, color: C.muted)),
+              Text(detail, style: TextStyle(fontSize: 12, color: C.muted)),
             ]),
           ),
           if (trailing != null) trailing,
@@ -106,7 +106,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
   Widget _count(String value, String label, {Color? color}) => Expanded(
         child: Column(children: [
           Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: C.muted)),
+          Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 11.5, color: C.muted)),
         ]),
       );
 
@@ -197,7 +197,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Padding(padding: EdgeInsets.fromLTRB(14, 12, 14, 4), child: SectionLabel('Stampe in attesa')),
           if (waiting.isEmpty)
-            const Padding(padding: EdgeInsets.fromLTRB(14, 4, 14, 14), child: Text('Nessuna', style: TextStyle(color: C.muted))),
+            Padding(padding: EdgeInsets.fromLTRB(14, 4, 14, 14), child: Text('Nessuna', style: TextStyle(color: C.muted))),
           for (final w in waiting)
             ListTile(
               dense: true,
@@ -220,7 +220,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Padding(padding: EdgeInsets.fromLTRB(14, 12, 14, 4), child: SectionLabel('Copie stampate negli ultimi 10 minuti')),
           if (perPerson.isEmpty)
-            const Padding(padding: EdgeInsets.fromLTRB(14, 4, 14, 14), child: Text('Nessuna', style: TextStyle(color: C.muted))),
+            Padding(padding: EdgeInsets.fromLTRB(14, 4, 14, 14), child: Text('Nessuna', style: TextStyle(color: C.muted))),
           for (final entry in perPerson.entries)
             ListTile(dense: true, title: Text(entry.key), trailing: Text('${entry.value}', style: const TextStyle(fontWeight: FontWeight.w700))),
           if (recent.isNotEmpty) ...[
@@ -239,7 +239,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
         ]),
       ),
       const SizedBox(height: 8),
-      const Text('Il limite anti-flood chiede conferma oltre 20 copie dello stesso lotto o 60 per persona in 10 minuti.',
+      Text('Il limite anti-flood chiede conferma oltre 20 copie dello stesso lotto o 60 per persona in 10 minuti.',
           textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
     ]);
   }

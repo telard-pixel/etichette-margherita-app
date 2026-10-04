@@ -12,9 +12,14 @@ final navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Intestazioni blu notte in cima a ogni schermata: icone di stato chiare.
+  // Tema chiaro o scuro come il telefono (o il computer), gia' dal primo
+  // disegno.
+  C.dark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+  // Intestazioni chiare di giorno, scure di notte: icone di stato al contrario.
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, statusBarBrightness: Brightness.light),
+    C.dark
+        ? const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark)
+        : const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, statusBarBrightness: Brightness.light),
   );
   runApp(const EtichetteApp());
   // Nella versione web il gesto "indietro" chiude la schermata aperta (se
@@ -31,11 +36,31 @@ class EtichetteApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
         theme: appTheme(),
+        darkTheme: appTheme(dark: true),
+        themeMode: ThemeMode.system,
+        builder: (context, child) {
+          // Il telefono passa al tema scuro (o torna chiaro), anche con l'app
+          // aperta: i colori di C cambiano e tutto si ridisegna.
+          final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+          if (dark != C.dark) {
+            C.dark = dark;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final root = WidgetsBinding.instance.rootElement;
+              if (root != null) _rebuildAll(root);
+            });
+          }
+          return child!;
+        },
         locale: const Locale('it'),
         supportedLocales: const [Locale('it')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: const StartGate(),
       );
+}
+
+void _rebuildAll(Element element) {
+  element.markNeedsBuild();
+  element.visitChildren(_rebuildAll);
 }
 
 /// All'avvio: rientra con l'accesso salvato, altrimenti chiede nome e PIN.
@@ -68,5 +93,5 @@ class _StartGateState extends State<StartGate> {
 
   @override
   Widget build(BuildContext context) =>
-      const Scaffold(backgroundColor: C.navy, body: Center(child: CircularProgressIndicator(color: C.sand)));
+      Scaffold(backgroundColor: C.navy, body: const Center(child: CircularProgressIndicator(color: C.sand)));
 }

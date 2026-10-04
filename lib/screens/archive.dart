@@ -293,8 +293,8 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       child: ChoiceChip(
         label: Text(label),
         selected: on,
-        labelStyle: TextStyle(color: on ? Colors.white : C.navy, fontWeight: FontWeight.w500),
-        side: on ? BorderSide.none : const BorderSide(color: C.border),
+        labelStyle: TextStyle(color: on ? C.onSelected : C.ink, fontWeight: FontWeight.w500),
+        side: on ? BorderSide.none : BorderSide(color: C.border),
         onSelected: (_) {
           _search.clear();
           setState(() {
@@ -361,9 +361,9 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Cerca prodotto o lotto',
-              prefixIcon: const Icon(Symbols.search_rounded, color: C.muted),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: C.border)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: C.border)),
+              prefixIcon: Icon(Symbols.search_rounded, color: C.muted),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: C.border)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: C.border)),
               suffixIcon: _search.text.isEmpty
                   ? null
                   : IconButton(
@@ -391,7 +391,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           ),
         ),
         if (!_selecting)
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Row(children: [
               Icon(Symbols.touch_app_rounded, size: 15, color: C.faint),
@@ -416,7 +416,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: _items.isEmpty
-          ? ListView(children: const [
+          ? ListView(children: [
               SizedBox(height: 80),
               Center(child: Text('Nessuna scheda', style: TextStyle(color: C.muted))),
             ])
@@ -460,7 +460,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
       if (_moreError != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Text(_moreError!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, color: C.muted)),
+          child: Text(_moreError!, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: C.muted)),
         ),
       TextButton.icon(
         onPressed: () {
@@ -499,7 +499,7 @@ class ItemTile extends StatelessWidget {
     final internal = s['lotto_interno_codice'] as String?;
     return Panel(
       padding: const EdgeInsets.all(12),
-      color: selected ? C.sandSoft : (reading ? const Color(0xFFFAF9F6) : null),
+      color: selected ? C.sandSoft : (reading ? C.readingTint : null),
       border: selected ? Border.all(color: C.blue, width: 2) : null,
       onLongPress: onSelect,
       onTap: selecting
@@ -546,14 +546,14 @@ class ItemTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text('Scad. ${itDate(s['scadenza'])}',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: C.muted)),
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: C.muted)),
                 ),
               ]),
             const SizedBox(height: 7),
             Row(children: [
               Expanded(
                 child: Text('${whenArrived(s['arrivata_alle'])} · $who',
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.muted)),
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: C.muted)),
               ),
               if (internal != null) Text(internal, style: mono.copyWith(fontSize: 12, color: C.sandText)),
             ]),
