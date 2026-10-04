@@ -25,6 +25,18 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   Map<String, dynamic>? _summary;
   String? _error;
   bool _loading = true;
+
+  /// L'elenco va a pagine (Tutte, Da rivedere, Dall'app): scorrendo in fondo
+  /// arrivano le schede piu' vecchie, fino alla prima. Prima si fermava alle
+  /// ultime 50 (4/10/2026).
+  static const _page = 50;
+  /// Quante schede chiedere ricaricando: quelle gia' mostrate scorrendo, cosi'
+  /// un aggiornamento non riporta l'elenco alle prime 50.
+  int _wanted = _page;
+  /// Il server ne ha ancora di piu' vecchie.
+  bool _more = false;
+  bool _loadingMore = false;
+  String? _moreError;
   /// Schede scelte per la stampa di piu' etichette (tenendo premuta una
   /// scheda si entra nella selezione), nell'ordine in cui sono state scelte.
   final Map<int, Map<String, dynamic>> _selected = {};
@@ -76,6 +88,16 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     };
   }
 
+  /// Senza ricerca, Tutte, Da rivedere e Dall'app vanno a pagine.
+  bool get _paged => _search.text.trim().isEmpty && _filter != Filter.today;
+
+  /// Si ricomincia dalla prima pagina (altro filtro, altra ricerca).
+  void _restart() {
+    _wanted = _page;
+    _more = false;
+    _moreError = null;
+  }
+
   /// Ogni caricamento ha un numero: vale solo la risposta dell'ultimo, cosi'
   /// una ricerca lenta ("ri") non copre quella appena scritta ("riso").
   int _request = 0;
@@ -83,7 +105,8 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   Future<void> _load() async {
     final request = ++_request;
     try {
-      final body = await Api.instance.get('/schede', _query);
+      final paged = _paged;
+      final body = await Api.instance.get('/schede', {..._query, if (paged) 'quanti': '$_wanted'});
       var items = (body['schede'] as List).cast<Map<String, dynamic>>();
       final text = _search.text.trim();
       if (text.isNotEmpty && items.isEmpty && RegExp(r'\d').hasMatch(text)) {
@@ -102,6 +125,8 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _summary = summary;
         _error = null;
         _loading = false;
+        // Un server di prima delle pagine non manda "altre": niente di piu'.
+        _more = paged && body['altre'] == true;
       });
       _schedulePoll();
     } on ApiError catch (e) {
@@ -111,6 +136,34 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _loading = false;
       });
       _schedulePoll(); // senza rete si riprova, piu' piano
+    }
+  }
+
+  /// La pagina dopo l'ultima scheda in elenco, arrivati in fondo.
+  Future<void> _loadMore() async {
+    if (!_more || _loadingMore || _items.isEmpty || !_paged) return;
+    final request = _request;
+    final last = _items.last['id'] as int;
+    setState(() {
+      _loadingMore = true;
+      _moreError = null;
+    });
+    try {
+      final body = await Api.instance.get('/schede', {..._query, 'quanti': '$_page', 'prima_di': '$last'});
+      if (!mounted || request != _request) return;
+      // Solo quelle piu' vecchie dell'ultima: se intanto l'elenco e' stato
+      // ricaricato con piu' schede, niente doppioni.
+      final oldest = _items.last['id'] as int;
+      final older = (body['schede'] as List).cast<Map<String, dynamic>>().where((s) => (s['id'] as int) < oldest);
+      setState(() {
+        _items = [..._items, ...older];
+        _wanted = _items.length;
+        _more = body['altre'] == true;
+      });
+    } on ApiError catch (e) {
+      if (mounted && request == _request) setState(() => _moreError = e.message);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -136,7 +189,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
   }
 
   void _onSearch(String _) {
-    setState(() {});
+    setState(_restart);
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), _load);
   }
@@ -155,6 +208,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           setState(() {
             _filter = f;
             _loading = true;
+            _restart();
           });
           _load();
         },
@@ -227,7 +281,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                         icon: const Icon(Icons.close),
                         onPressed: () {
                           _search.clear();
-                          setState(() {});
+                          setState(_restart);
                           _load();
                         }),
               ),
@@ -277,19 +331,54 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               SizedBox(height: 80),
               Center(child: Text('Nessuna scheda', style: TextStyle(color: C.muted))),
             ])
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: _items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, i) => ItemTile(
-                _items[i],
-                onChanged: _load,
-                selected: _selected.containsKey(_items[i]['id']),
-                selecting: _selecting,
-                onSelect: () => _toggle(_items[i]),
+          : NotificationListener<ScrollNotification>(
+              // Vicino al fondo arriva la pagina dopo, senza toccare nulla.
+              onNotification: (n) {
+                if (n.metrics.extentAfter < 800 && _moreError == null) _loadMore();
+                return false;
+              },
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                itemCount: _items.length + (_more ? 1 : 0),
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, i) => i == _items.length
+                    ? _moreFooter()
+                    : ItemTile(
+                        _items[i],
+                        onChanged: _load,
+                        selected: _selected.containsKey(_items[i]['id']),
+                        selecting: _selecting,
+                        onSelect: () => _toggle(_items[i]),
+                      ),
               ),
             ),
     );
+  }
+
+  /// In fondo all'elenco: la rotella mentre arrivano le schede piu' vecchie,
+  /// o il tasto per caricarle (anche dopo un errore di rete).
+  Widget _moreFooter() {
+    if (_loadingMore) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))),
+      );
+    }
+    return Column(children: [
+      if (_moreError != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(_moreError!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, color: C.muted)),
+        ),
+      TextButton.icon(
+        onPressed: () {
+          setState(() => _moreError = null);
+          _loadMore();
+        },
+        icon: const Icon(Icons.expand_more),
+        label: const Text('Carica schede più vecchie'),
+      ),
+    ]);
   }
 }
 
