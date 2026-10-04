@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -479,11 +477,9 @@ class PhotoPlaceholder extends StatelessWidget {
   const PhotoPlaceholder({super.key, this.icon = Icons.image_outlined});
   final IconData icon;
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(colors: [Color(0xFFDCE3EC), Color(0xFFC9D3DF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        ),
-        child: Center(child: Icon(icon, color: const Color(0xFF7A8698))),
+  Widget build(BuildContext context) => ColoredBox(
+        color: const Color(0xFFF1EEE6),
+        child: Center(child: Icon(icon, color: const Color(0xFFADA493))),
       );
 }
 
