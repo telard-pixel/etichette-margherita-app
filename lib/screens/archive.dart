@@ -60,9 +60,19 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     });
   }
 
+  bool _printing = false;
+
+  /// La selezione si svuota solo se la stampa e' partita: chiudendo il
+  /// foglio o con "Annulla" restano scelte (revisione 6/10/2026).
   Future<void> _printSelection() async {
-    await printSelected(context, _selected.values.toList());
-    if (mounted) setState(_selected.clear);
+    if (_printing) return;
+    setState(() => _printing = true);
+    final started = await printSelected(context, _selected.values.toList());
+    if (!mounted) return;
+    setState(() {
+      _printing = false;
+      if (started) _selected.clear();
+    });
   }
 
   @override
@@ -277,7 +287,27 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         (ModalRoute.of(context)?.isCurrent ?? true);
     if (!visible) return;
     _pollRounds++;
-    _poll = Timer(Duration(seconds: _pollRounds <= 24 ? 5 : 20), _load);
+    // Con tante schede gia' scorse si rilegge solo la prima pagina (dove
+    // stanno quelle in lettura) e la si unisce: prima si richiedevano tutte,
+    // ogni 5 secondi (revisione 6/10/2026).
+    final refresh = _paged && _items.length > _page ? _refreshTop : _load;
+    _poll = Timer(Duration(seconds: _pollRounds <= 24 ? 5 : 20), refresh);
+  }
+
+  Future<void> _refreshTop() async {
+    final request = _request;
+    try {
+      final body = await Api.instance.get('/schede', {..._shown, 'quanti': '$_page'});
+      if (!mounted || request != _request) return;
+      final fresh = (body['schede'] as List).cast<Map<String, dynamic>>();
+      if (fresh.isNotEmpty) {
+        final oldest = fresh.map((s) => s['id'] as int).reduce((a, b) => a < b ? a : b);
+        setState(() => _items = [...fresh, ..._items.where((s) => (s['id'] as int) < oldest)]);
+      }
+    } on ApiError {
+      // si riprova al giro dopo
+    }
+    if (mounted && request == _request) _schedulePoll();
   }
 
   void _onSearch(String _) {
@@ -317,7 +347,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: FilledButton.icon(
-                  onPressed: _printSelection,
+                  onPressed: _printing ? null : _printSelection,
                   icon: const Icon(Symbols.print_rounded),
                   label: Text(_selected.length == 1 ? 'Stampa 1 etichetta' : 'Stampa ${_selected.length} etichette'),
                 ),
@@ -396,7 +426,10 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             child: Row(children: [
               Icon(Symbols.touch_app_rounded, size: 15, color: C.faint),
               SizedBox(width: 6),
-              Text('Tieni premuta una scheda per stamparne più insieme', style: TextStyle(fontSize: 12, color: C.muted)),
+              Expanded(
+                child: Text('Tieni premuta una scheda per stamparne più insieme',
+                    maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: C.muted)),
+              ),
             ]),
           ),
         const SizedBox(height: 4),
@@ -542,7 +575,7 @@ class ItemTile extends StatelessWidget {
             const SizedBox(height: 7),
             if (!reading)
               Row(children: [
-                LotTag(s['lotto'] ?? '—'),
+                Flexible(child: LotTag(s['lotto'] ?? '—')),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text('Scad. ${itDate(s['scadenza'])}',

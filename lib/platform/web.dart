@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
+
+import 'pending.dart';
+
+export 'pending.dart';
 
 /// Versione per il browser (la pagina web dell'app).
 const bool isWebApp = true;
@@ -70,3 +75,89 @@ Future<List<int>?> readPhotoCache(String key) async => null;
 Future<void> writePhotoCache(String key, List<int> bytes) async {}
 
 Future<void> forgetPhotoCache(String prefix) async {}
+
+
+/// Il browser ha gia' la sua cache: nessun APK da pulire.
+Future<void> cleanupDownloads() async {}
+
+/// Carica la versione nuova della pagina (vedi Updater sul web).
+void reloadPage() => web.window.location.reload();
+
+/// Apre un link di scaricamento firmato dal server (esportazioni): sull'iPhone
+/// un file passato al browser in memoria spesso non si salvava, un link vero
+/// lo apre Safari stesso. Va chiamata direttamente dal tocco dell'utente.
+Future<bool> openDownloadLink(String url) async {
+  final link = web.document.createElement('a') as web.HTMLAnchorElement
+    ..href = url
+    ..target = '_blank'
+    ..rel = 'noopener';
+  web.document.body?.append(link);
+  link.click();
+  link.remove();
+  return true;
+}
+
+// Foto scattate e non ancora inviate, in IndexedDB: Safari sull'iPhone puo'
+// ricaricare la pagina mentre la fotocamera e' aperta, e prima le foto (in
+// memoria) andavano perse (revisione 6/10/2026).
+
+Future<JSAny?> _done(web.IDBRequest request) {
+  final completer = Completer<JSAny?>();
+  request.onsuccess = ((web.Event _) => completer.complete(request.result)).toJS;
+  request.onerror = ((web.Event _) => completer.completeError('IndexedDB')).toJS;
+  return completer.future;
+}
+
+Future<web.IDBDatabase> _openDb() {
+  final completer = Completer<web.IDBDatabase>();
+  final request = web.window.indexedDB.open('etichette', 1);
+  request.onupgradeneeded = ((web.Event _) {
+    (request.result as web.IDBDatabase).createObjectStore('in_attesa');
+  }).toJS;
+  request.onsuccess = ((web.Event _) => completer.complete(request.result as web.IDBDatabase)).toJS;
+  request.onerror = ((web.Event _) => completer.completeError('IndexedDB')).toJS;
+  return completer.future;
+}
+
+Future<void> savePendingPhotos(List<Uint8List> photos, String caption, String batch, int? itemId) async {
+  try {
+    final db = await _openDb();
+    final store = db.transaction('in_attesa'.toJS, 'readwrite').objectStore('in_attesa');
+    if (photos.isEmpty) {
+      await _done(store.delete('stato'.toJS));
+      return;
+    }
+    final value = JSObject()
+      ..setProperty('didascalia'.toJS, caption.toJS)
+      ..setProperty('chiave'.toJS, batch.toJS)
+      ..setProperty('scheda'.toJS, itemId?.toJS)
+      ..setProperty('foto'.toJS, [for (final p in photos) p.toJS].toJS);
+    await _done(store.put(value, 'stato'.toJS));
+  } catch (_) {
+    // navigazione privata o spazio pieno: le foto restano solo in memoria
+  }
+}
+
+Future<PendingPhotos?> loadPendingPhotos() async {
+  try {
+    final db = await _openDb();
+    final store = db.transaction('in_attesa'.toJS, 'readonly').objectStore('in_attesa');
+    final value = await _done(store.get('stato'.toJS));
+    if (value == null) return null;
+    final object = value as JSObject;
+    final photos = [
+      for (final p in (object.getProperty<JSArray<JSUint8Array>>('foto'.toJS)).toDart) p.toDart,
+    ];
+    if (photos.isEmpty) return null;
+    return PendingPhotos(
+      photos,
+      object.getProperty<JSString?>('didascalia'.toJS)?.toDart ?? '',
+      object.getProperty<JSString?>('chiave'.toJS)?.toDart ?? '',
+      object.getProperty<JSNumber?>('scheda'.toJS)?.toDartInt,
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> clearPendingPhotos() => savePendingPhotos(const [], '', '', null);

@@ -10,8 +10,25 @@ import '../ui.dart';
 /// Stampa di piu' etichette insieme: scelta di copie e, se tra le schede ci
 /// sono foto di giorni passati, una sola domanda per tutte (tenere le date di
 /// allora o aprire lotti nuovi con la data di oggi). Poi la coda: parte dopo
-/// qualche secondo e si puo' annullare.
-Future<void> printSelected(BuildContext context, List<Map<String, dynamic>> cards) async {
+/// qualche secondo e si puo' annullare. true se la stampa e' partita.
+///
+/// Una sola alla volta: con la rete lenta un secondo tocco su "Stampa"
+/// mandava una seconda coda e le etichette uscivano doppie (revisione 6/10/2026).
+bool _printingSelection = false;
+
+Future<bool> printSelected(BuildContext context, List<Map<String, dynamic>> cards) async {
+  if (_printingSelection) return false;
+  _printingSelection = true;
+  final busy = UnsavedFlag()..set(true);
+  try {
+    return await _printSelected(context, cards);
+  } finally {
+    _printingSelection = false;
+    busy.set(false);
+  }
+}
+
+Future<bool> _printSelected(BuildContext context, List<Map<String, dynamic>> cards) async {
   final todayIso = isoDay(today());
   final old = cards.where((s) => (s['giorno'] as String? ?? todayIso).compareTo(todayIso) < 0).length;
   final options = await showModalBottomSheet<(int, bool)>(
@@ -20,17 +37,19 @@ Future<void> printSelected(BuildContext context, List<Map<String, dynamic>> card
     showDragHandle: true,
     builder: (_) => _PrintOptionsSheet(count: cards.length, old: old),
   );
-  if (options == null || !context.mounted) return;
+  if (options == null || !context.mounted) return false;
   final body = await printRequest(context, '/stampe-multiple', {
     'schede': [for (final s in cards) s['id'] as int],
     'copie': options.$1,
     'apertura': options.$2,
   });
-  if (body == null || !context.mounted) return;
+  if (body == null) return false;
+  if (!context.mounted) return true;
   await Navigator.push(
     context,
     MaterialPageRoute<void>(builder: (_) => _MultiPrintScreen(body['stampa'] as Map<String, dynamic>, cards)),
   );
+  return true;
 }
 
 class _PrintOptionsSheet extends StatefulWidget {

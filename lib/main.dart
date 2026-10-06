@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -35,6 +36,14 @@ class EtichetteApp extends StatelessWidget {
         title: 'Etichette Margherita',
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
+        // Sul computer le foto della scheda e le liste si trascinano anche
+        // col mouse (prima solo col dito: col mouse non si sfogliavano).
+        scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+        }),
         theme: appTheme(),
         darkTheme: appTheme(dark: true),
         themeMode: ThemeMode.system,

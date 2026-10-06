@@ -33,6 +33,8 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
   }
 
   int _request = 0;
+  /// Il server ha tagliato l'elenco (oltre 200 righe): lo si dice.
+  bool _truncated = false;
 
   Future<void> _load() async {
     final request = ++_request;
@@ -43,6 +45,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
       if (mounted && request == _request) {
         setState(() {
           _items = items;
+          _truncated = body['altre'] == true;
           _error = null;
         });
       }
@@ -68,7 +71,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
               Text(s['prodotto'] ?? '—', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               const SizedBox(height: 5),
               Row(children: [
-                LotTag(s['lotto'] ?? '—'),
+                Flexible(child: LotTag(s['lotto'] ?? '—')),
                 const SizedBox(width: 8),
                 Text(itDate(s['scadenza']), style: TextStyle(fontSize: 13, color: C.muted)),
               ]),
@@ -102,7 +105,7 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
             : StatStrip([
                 ('${expired.length}', 'scadute', C.statBad),
                 ('${soon.length}', 'entro 3 giorni', C.statWarn),
-                ('${soon.length + later.length}', 'entro $_days giorni', Colors.white),
+                ('${soon.length + later.length}', 'in $_days gg', Colors.white),
               ]),
       ),
       body: _items == null
@@ -110,6 +113,12 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(padding: const EdgeInsets.all(16), children: [
+                if (_truncated)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text('Sono tante: qui vedi le prime 200. Scegli meno giorni per vederle tutte.',
+                        style: TextStyle(fontSize: 13, color: C.warnFg)),
+                  ),
                 Wrap(spacing: 8, children: [
                   for (final d in const [3, 7, 30])
                     ChoiceChip(

@@ -57,6 +57,15 @@ class _ItemScreenState extends State<ItemScreen> {
     super.dispose();
   }
 
+  /// Con l'app nascosta si aspetta senza chiedere niente al server.
+  void _pollTick() {
+    if (appVisible) {
+      _load();
+    } else {
+      _poll = Timer(const Duration(seconds: 5), _pollTick);
+    }
+  }
+
   Future<void> _load() async {
     final request = ++_request;
     _poll?.cancel();
@@ -68,25 +77,59 @@ class _ItemScreenState extends State<ItemScreen> {
       // Rimessa in coda (foto aggiunta, riletta) o ancora in archiviazione:
       // la scheda si aggiorna da sola finche' non e' pronta, poi compare il
       // lotto interno e si puo' stampare.
-      if (s['in_lavorazione'] == true) _poll = Timer(const Duration(seconds: 5), _load);
+      if (s['in_lavorazione'] == true) _poll = Timer(const Duration(seconds: 5), _pollTick);
     } on ApiError catch (e) {
       if (mounted && request == _request) setState(() => _error = e.message);
     }
   }
 
+  bool _uploading = false;
+
+  /// Un'altra foto della scheda (revisione 6/10/2026): finestra d'attesa
+  /// durante l'invio (prima niente, e con la rete lenta la si rifaceva),
+  /// chiave anti-doppione se si riprova, errori della fotocamera detti, e la
+  /// scheda d'origine ricordata se Android chiude l'app durante lo scatto.
   Future<void> _addPhoto() async {
-    final file = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
+    if (_uploading) return;
+    XFile? file;
+    try {
+      await Api.instance.writeSetting('scatto_per_scheda', '${widget.itemId}');
+      file = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
+    } catch (e) {
+      if (mounted) toast(context, 'Fotocamera non disponibile: $e', error: true);
+      return;
+    } finally {
+      await Api.instance.writeSetting('scatto_per_scheda', null);
+    }
     if (file == null || !mounted) return;
     final bytes = await file.readAsBytes();
     if (!mounted) return;
-    final ok = await attempt(context, () => Api.instance.uploadPhoto('/schede/${widget.itemId}/foto', bytes));
-    if (ok != null && mounted) {
-      forgetItemPhoto(widget.itemId);
-      toast(context, 'Foto aggiunta: la scheda viene riletta');
+    final itemId = widget.itemId;
+    final key = 'foto-$itemId-${DateTime.now().microsecondsSinceEpoch}';
+    setState(() => _uploading = true);
+    final busy = UnsavedFlag()..set(true);
+    final dialog = BlockingDialog.show(context, title: 'Invio la foto…', content: const LinearProgressIndicator());
+    Map<String, dynamic>? ok;
+    try {
+      ok = await attempt(context, () => Api.instance.uploadPhoto('/schede/$itemId/foto', bytes, key: key));
+    } finally {
+      dialog.close();
+      busy.set(false);
+    }
+    // Anche se nel frattempo si e' tornati indietro: elenchi e foto si
+    // aggiornano lo stesso.
+    if (ok != null) {
+      forgetItemPhoto(itemId);
       archiveChanged.value++;
+    }
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    if (ok != null) {
+      toast(context, 'Foto aggiunta: la scheda viene riletta');
       _load();
     }
   }
+
 
   Future<void> _reexamine() async {
     final ok = await attempt(context, () => Api.instance.post('/schede/${widget.itemId}/riesamina', {}));

@@ -12,6 +12,13 @@ on:
 permissions:
   contents: write
 
+# Una build alla volta per ramo: due push ravvicinati non devono finire in
+# ordine sbagliato e ricaricare sul server una versione piu' vecchia (il
+# server comunque rifiuta le build piu' vecchie; revisione 6/10/2026).
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -40,6 +47,10 @@ jobs:
         run: |
           flutter create --org it.margherita --project-name etichette_margherita --platforms android,web .
           python3 tool/web_tweak.py
+          # Versione minima di Android scritta qui, non lasciata a flutter
+          # create: un aggiornamento di Flutter la cambiava senza avvisare.
+          sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
+          grep -q "minSdk = 24" android/app/build.gradle.kts
 
       - run: flutter pub get
 

@@ -155,8 +155,23 @@ class _PrintScreenState extends State<PrintScreen> {
                 : SizedBox(
                     height: 160,
                     child: Center(
+                      // Il riquadro e' bianco anche al buio: testo scuro fisso, e un
+                      // tasto per riprovare (prima Stampa restava spento per
+                      // sempre se l'anteprima non arrivava; revisione 6/10/2026).
                       child: _error != null
-                          ? Text(_error!, textAlign: TextAlign.center)
+                          ? Column(mainAxisSize: MainAxisSize.min, children: [
+                              Text(_error!, textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Color(0xFF1B2333))),
+                              const SizedBox(height: 8),
+                              TextButton(
+                                style: TextButton.styleFrom(foregroundColor: const Color(0xFF8C6239)),
+                                onPressed: () {
+                                  setState(() => _error = null);
+                                  _loadLabel();
+                                },
+                                child: const Text('Riprova'),
+                              ),
+                            ])
                           : const CircularProgressIndicator(),
                     ),
                   ),
@@ -247,7 +262,9 @@ class _PrintScreenState extends State<PrintScreen> {
         Row(children: [
           Expanded(
             child: FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: C.badFg),
+              // Rosso scuro fisso su bianco: il rosso del tema scuro e' chiaro
+              // e sul bianco non si leggeva (revisione 6/10/2026).
+              style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFFA3301B)),
               onPressed: printing || _sending ? null : () => _action('annulla'),
               child: const Text('Annulla'),
             ),

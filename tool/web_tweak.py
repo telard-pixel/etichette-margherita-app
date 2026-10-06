@@ -36,6 +36,7 @@ DIAGNOSTICA = """
     }
     function show() {
       var box = document.createElement('div');
+      box.id = 'avvio-fallito';
       box.style.cssText = 'position:fixed;inset:0;background:#1B2333;color:#fff;font:16px -apple-system,sans-serif;padding:24px;overflow:auto;z-index:9';
       box.innerHTML = '<h2 style="margin-top:40px">La pagina non si è avviata</h2>'
         + '<p>Il browser non riesce a far partire l&#39;app. Il motivo è stato mandato al server.</p>'
@@ -57,6 +58,10 @@ DIAGNOSTICA = """
       drawn = true; send('primo-disegno');
       var loading = document.getElementById('caricamento');
       if (loading) loading.remove();
+      // Partita tardi (rete lenta, scheda in secondo piano): via anche
+      // l'avviso di errore, o restava sopra l'app funzionante (6/10/2026).
+      var failed = document.getElementById('avvio-fallito');
+      if (failed) { failed.remove(); send('partita-dopo-avviso'); }
     });
     // Con la rete del telefono la prima apertura puo' metterci mezzo minuto:
     // l'avviso compare solo se dopo 90 secondi non c'e' ancora niente.

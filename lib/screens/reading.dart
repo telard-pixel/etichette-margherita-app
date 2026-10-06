@@ -37,7 +37,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   /// Una domanda alla volta: con la rete lenta le risposte non si
   /// accavallano e la scheda si apre una volta sola.
-  void _next() => _timer = Timer(const Duration(seconds: 3), _check);
+  void _next() => _timer = Timer(const Duration(seconds: 3), () => appVisible ? _check() : _next());
 
   Future<void> _check() async {
     _checks++;
@@ -88,10 +88,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
           border: Border.all(color: color, width: 2),
         ),
         child: done
-            ? const Icon(Symbols.check_rounded, size: 18, color: Colors.white)
+            // Colore della superficie, non bianco fisso: al buio il cerchio e'
+            // chiaro e il bianco non si vedeva (revisione 6/10/2026).
+            ? Icon(Symbols.check_rounded, size: 18, color: C.surface)
             : running
-                ? const Padding(
-                    padding: EdgeInsets.all(6), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? Padding(
+                    padding: const EdgeInsets.all(6), child: CircularProgressIndicator(strokeWidth: 2, color: C.surface))
                 : null,
       ),
       const SizedBox(width: 12),

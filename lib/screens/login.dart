@@ -25,10 +25,46 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     if (widget.expired) _error = 'Accesso scaduto: rientra con nome e PIN';
+    HardwareKeyboard.instance.addHandler(_onKey);
     // L'ultimo nome usato su questo telefono, per non riscriverlo ogni volta.
-    const FlutterSecureStorage().read(key: 'nome').then((v) {
+    const FlutterSecureStorage().read(key: 'ultimo_nome').then((v) {
       if (v != null && mounted && _name.text.isEmpty) setState(() => _name.text = v);
-    });
+    }, onError: (_) {});
+  }
+
+  final _nameFocus = FocusNode();
+
+  /// Sul computer il PIN si scrive anche con la tastiera (cifre, cancella,
+  /// Invio), quando non si sta scrivendo il nome (revisione 6/10/2026).
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent || _busy || !mounted) return false;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      if (_nameFocus.hasFocus) {
+        _nameFocus.unfocus();
+      } else {
+        _login();
+      }
+      return true;
+    }
+    if (_nameFocus.hasFocus) return false;
+    if (key == LogicalKeyboardKey.backspace) {
+      _key('<');
+      return true;
+    }
+    final char = event.character;
+    if (char != null && RegExp(r'^[0-9]$').hasMatch(char)) {
+      _key(char);
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    _nameFocus.dispose();
+    super.dispose();
   }
 
   void _key(String k) {
@@ -112,13 +148,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: C.onNavyMuted, fontSize: 14)),
               ]),
             ),
-            Padding(
+            Center(
+              child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 const SectionLabel('Nome'),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _name,
+                  focusNode: _nameFocus,
                   textCapitalization: TextCapitalization.words,
                   autofillHints: const [AutofillHints.name],
                   decoration: const InputDecoration(hintText: 'Nome e cognome'),
@@ -126,8 +166,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 18),
                 const SectionLabel('PIN'),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                // Wrap: con un PIN lungo i pallini vanno a capo invece di sbordare.
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  runSpacing: 8,
                   children: [
                     for (var i = 0; i < dots; i++)
                       Container(
@@ -168,6 +210,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text('Resti collegato su questo telefono per 90 giorni',
                     textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
               ]),
+            ),
+              ),
             ),
           ],
         ),

@@ -147,6 +147,33 @@ class _MoreScreenState extends State<MoreScreen> {
       final names = (job['file'] as List).cast<String>().where((f) => f.endsWith(extension));
       if (names.isEmpty) throw ApiError(0, 'file $extension non trovato');
       final name = names.first;
+      if (platform.isWebApp) {
+        // Nel browser (soprattutto iPhone) un file passato in memoria spesso
+        // non si salvava, senza errore: si chiede al server un link firmato
+        // e lo si apre col tocco dell'utente (revisione 6/10/2026).
+        final link = (await Api.instance.post('/admin/esporta/$id/${Uri.encodeComponent(name)}/link', {}))['url'] as String;
+        dialog.close();
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Esportazione pronta'),
+            content: Text('$name è pronto. Il link vale 10 minuti.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Chiudi')),
+              FilledButton(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                onPressed: () {
+                  platform.openDownloadLink('$kServer$link');
+                  Navigator.pop(context);
+                },
+                child: const Text('Scarica'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       status.value = 'Scarico $name…';
       final data = await Api.instance.download('/admin/esporta/$id/$name');
       dialog.close();

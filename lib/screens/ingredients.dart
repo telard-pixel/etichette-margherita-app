@@ -23,7 +23,10 @@ class Ingredient {
 String? cardLot(Map<String, dynamic> item) {
   final lot = (item['lotto'] as String?)?.trim();
   if (lot != null && lot.isNotEmpty) return lot;
-  return (item['lotto_interno'] as Map?)?['codice'] as String?;
+  // Nell'elenco delle schede il codice arriva come "lotto_interno_codice"
+  // ("lotto_interno" c'e' solo aprendo la scheda): prima l'ingrediente
+  // risultava "senza lotto" anche quando ce l'aveva (revisione 6/10/2026).
+  return item['lotto_interno_codice'] as String? ?? (item['lotto_interno'] as Map?)?['codice'] as String?;
 }
 
 Future<Ingredient?> pickIngredient(BuildContext context) => showModalBottomSheet<Ingredient>(

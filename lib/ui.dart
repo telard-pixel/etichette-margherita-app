@@ -12,6 +12,32 @@ import 'platform/platform.dart' show readPhotoCache, writePhotoCache, forgetPhot
 /// Ogni colore ha la sua versione scura: l'app segue il tema del telefono o
 /// del computer ([dark] lo imposta EtichetteApp). Per questo non sono
 /// costanti: si leggono a ogni disegno.
+/// Larghezza massima del contenuto su schermi grandi (PC, tablet).
+const double kMaxContentWidth = 760;
+
+/// Lavoro dell'utente non ancora finito (foto scattate non inviate, invio o
+/// stampa in corso): l'aggiornamento automatico non si propone finche' e'
+/// sopra zero, perche' l'installazione chiude l'app (revisione 6/10/2026).
+final ValueNotifier<int> unsavedWork = ValueNotifier(0);
+
+/// L'app e' davanti all'utente? Gli aggiornamenti periodici aspettano
+/// quando e' in secondo piano o la scheda del browser e' nascosta
+/// (revisione 6/10/2026: prima continuavano a interrogare il server).
+bool get appVisible {
+  final state = WidgetsBinding.instance.lifecycleState;
+  return state == null || state == AppLifecycleState.resumed;
+}
+
+/// Un motivo di lavoro non salvato, acceso o spento da una schermata.
+class UnsavedFlag {
+  bool _on = false;
+  void set(bool on) {
+    if (on == _on) return;
+    _on = on;
+    unsavedWork.value += on ? 1 : -1;
+  }
+}
+
 class C {
   static bool dark = false;
   static Color _p(int light, int night) => Color(dark ? night : light);
@@ -313,7 +339,8 @@ class LotTag extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: C.chipBg, borderRadius: BorderRadius.circular(8)),
-        child: Text(code, style: mono.copyWith(fontSize: size, color: C.ink)),
+        // Un lotto letto lungo (OCR) si accorcia con "…" invece di sbordare.
+        child: Text(code, maxLines: 1, overflow: TextOverflow.ellipsis, style: mono.copyWith(fontSize: size, color: C.ink)),
       );
 }
 
@@ -403,31 +430,58 @@ Divider get divider => Divider(height: 1, thickness: 1, color: C.line);
 enum PhotoSize { mini, media, full }
 
 /// Foto gia' scaricate, per non riscaricarle a ogni scorrimento dell'elenco.
-/// In memoria al massimo 250; sul telefono restano anche su disco.
+/// In memoria al massimo 250 ridotte e 4 originali (un originale pesa anche
+/// 10-25 MB: Safari sull'iPhone chiudeva la pagina); sul telefono le ridotte
+/// restano anche su disco, gli originali no (revisione 6/10/2026).
 final Map<String, Uint8List> _photoCache = {};
+final Map<String, Uint8List> _fullCache = {};
 final Map<String, Future<Uint8List>> _photoLoading = {};
+/// Cresce a ogni forgetItemPhoto: uno scaricamento partito prima non deve
+/// rimettere in cache la foto vecchia.
+final Map<int, int> _photoGeneration = {};
+
+/// Un JPEG o PNG completo? Un file salvato a meta' (app chiusa mentre
+/// scriveva) non va mostrato per sempre: si butta e si riscarica.
+bool _looksComplete(List<int> data) {
+  final n = data.length;
+  if (n < 8) return false;
+  if (data[0] == 0xFF && data[1] == 0xD8) return data[n - 2] == 0xFF && data[n - 1] == 0xD9;
+  if (data[0] == 0x89 && data[1] == 0x50) {
+    return data[n - 8] == 0x49 && data[n - 7] == 0x45 && data[n - 6] == 0x4E && data[n - 5] == 0x44;
+  }
+  return true;
+}
 
 Future<Uint8List> _loadPhoto(int itemId, PhotoSize size, int? extraId) {
   final key = '$itemId:${extraId ?? 0}:${size.name}';
-  final cached = _photoCache[key];
+  final cached = size == PhotoSize.full ? _fullCache[key] : _photoCache[key];
   if (cached != null) return Future.value(cached);
+  final generation = _photoGeneration[itemId] ?? 0;
   return _photoLoading[key] ??= () async {
-    final saved = await readPhotoCache(key);
+    final onDisk = size != PhotoSize.full;
+    final saved = onDisk ? await readPhotoCache(key) : null;
     final List<int> data;
-    if (saved != null) {
+    if (saved != null && _looksComplete(saved)) {
       data = saved;
     } else {
+      if (saved != null) forgetPhotoCache(key);
       final path = extraId == null ? '/schede/$itemId/foto' : '/schede/$itemId/foto/$extraId';
       data = await Api.instance.bytes(path, switch (size) {
         PhotoSize.mini => {'mini': '1'},
         PhotoSize.media => {'media': '1'},
         PhotoSize.full => null,
       });
-      writePhotoCache(key, data);
+      if (onDisk && generation == (_photoGeneration[itemId] ?? 0)) writePhotoCache(key, data);
     }
     final bytes = data is Uint8List ? data : Uint8List.fromList(data);
-    if (_photoCache.length >= 250) _photoCache.remove(_photoCache.keys.first);
-    _photoCache[key] = bytes;
+    if (generation != (_photoGeneration[itemId] ?? 0)) return bytes; // nel frattempo dimenticata
+    if (size == PhotoSize.full) {
+      if (_fullCache.length >= 4) _fullCache.remove(_fullCache.keys.first);
+      _fullCache[key] = bytes;
+    } else {
+      if (_photoCache.length >= 250) _photoCache.remove(_photoCache.keys.first);
+      _photoCache[key] = bytes;
+    }
     return bytes;
   }().whenComplete(() => _photoLoading.remove(key));
 }
@@ -438,11 +492,17 @@ Future<void> prefetchPhoto(int itemId, PhotoSize size) =>
     _loadPhoto(itemId, size, null).then((_) {}, onError: (_) {});
 
 /// Gia' scaricata in questa misura? (Per mostrarla subito, senza attesa.)
-Uint8List? _photoNow(int itemId, PhotoSize size, int? extraId) => _photoCache['$itemId:${extraId ?? 0}:${size.name}'];
+Uint8List? _photoNow(int itemId, PhotoSize size, int? extraId) {
+  final key = '$itemId:${extraId ?? 0}:${size.name}';
+  return size == PhotoSize.full ? _fullCache[key] : _photoCache[key];
+}
 
 /// Dimentica le foto di una scheda (foto aggiunta, scheda riletta).
 void forgetItemPhoto(int itemId) {
+  _photoGeneration[itemId] = (_photoGeneration[itemId] ?? 0) + 1;
   _photoCache.removeWhere((key, _) => key.startsWith('$itemId:'));
+  _fullCache.removeWhere((key, _) => key.startsWith('$itemId:'));
+  _photoLoading.removeWhere((key, _) => key.startsWith('$itemId:'));
   forgetPhotoCache('$itemId:');
 }
 
@@ -556,7 +616,12 @@ class PhotoPlaceholder extends StatelessWidget {
 void toast(BuildContext context, String text, {bool error = false}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(text), backgroundColor: error ? const Color(0xFFA3301B) : C.navy));
+    // Testo bianco esplicito: col tema scuro Material lo faceva scuro su
+    // fondo scuro, illeggibile (revisione 6/10/2026).
+    ..showSnackBar(SnackBar(
+      content: Text(text, style: const TextStyle(color: Colors.white)),
+      backgroundColor: error ? const Color(0xFFA3301B) : (C.dark ? const Color(0xFF3A3F4B) : C.navy),
+    ));
 }
 
 /// Esegue una richiesta e mostra l'errore, se c'e'. Null se fallita.
@@ -630,8 +695,20 @@ class HeaderScaffold extends StatelessWidget {
   // SafeArea in basso: senza, l'ultima riga (es. un tasto) finiva sotto i
   // tasti di sistema di Android/iPhone e non si poteva toccare (3/10/2026).
   // Nelle schede del menu in basso il bordo l'ha gia' tolto il menu stesso.
+  // Su un PC largo il contenuto resta al centro, largo al massimo 760 px:
+  // prima tasti e schede si allungavano fino a tutto lo schermo.
   Widget build(BuildContext context) => Scaffold(
-        body: Column(children: [header, Expanded(child: SafeArea(top: false, child: body))]),
+        body: Column(children: [
+          header,
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Center(
+                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: kMaxContentWidth), child: body),
+              ),
+            ),
+          ),
+        ]),
         bottomNavigationBar: bottom,
       );
 }

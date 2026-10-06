@@ -87,6 +87,7 @@ class Api {
 
   Future<void> _saveUser() async {
     await _storage.write(key: 'nome', value: userName);
+    await _storage.write(key: 'ultimo_nome', value: userName);
     await _storage.write(key: 'admin', value: isAdmin ? '1' : '0');
   }
 
@@ -99,7 +100,34 @@ class Api {
 
   Future<void> _forget() async {
     token = null;
-    await _storage.delete(key: 'token');
+    // Anche nome e ruolo: su un computer condiviso dopo "Esci" non resta
+    // chi era entrato (revisione 6/10/2026). Il nome per riempire la
+    // schermata di accesso sta a parte, in "ultimo_nome".
+    isAdmin = false;
+    try {
+      await _storage.delete(key: 'token');
+      await _storage.delete(key: 'nome');
+      await _storage.delete(key: 'admin');
+    } catch (_) {}
+  }
+
+  /// Piccole impostazioni dell'app (non l'accesso): restano anche dopo "Esci".
+  Future<String?> readSetting(String key) async {
+    try {
+      return await _storage.read(key: 'impostazione_$key');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> writeSetting(String key, String? value) async {
+    try {
+      if (value == null) {
+        await _storage.delete(key: 'impostazione_$key');
+      } else {
+        await _storage.write(key: 'impostazione_$key', value: value);
+      }
+    } catch (_) {}
   }
 
   Future<Map<String, dynamic>> _decode(http.Response r) async {
@@ -161,9 +189,11 @@ class Api {
   /// anche nel browser.
   Future<Map<String, dynamic>> uploadPhoto(String path, Uint8List photo, {String caption = '', String? key}) =>
       _guard(() async {
+        // Il nome segue il contenuto vero: un PNG non si chiama "foto.jpg".
+        final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
         final request = http.MultipartRequest('POST', uri(path))
           ..headers.addAll(authHeaders)
-          ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: 'foto.jpg'));
+          ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
         if (caption.trim().isNotEmpty) request.fields['didascalia'] = caption.trim();
         if (key != null) request.fields['chiave'] = key;
         final streamed = await _client.send(request).timeout(const Duration(minutes: 3));

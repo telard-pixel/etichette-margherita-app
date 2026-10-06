@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -42,20 +44,54 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
 
   static DateTime get _today => today();
 
-  DateTime get _day {
-    if (_picked != null && _pickedOn == _today) return _picked!;
-    return _today;
+  /// La data in vista e' sempre quella usata: a mezzanotte (o tornando
+  /// sull'app il giorno dopo) si torna a "Oggi" ridisegnando la schermata.
+  /// Prima la data cambiava solo dentro "Crea", senza che lo schermo lo
+  /// mostrasse: scelto "Ieri" alle 23:55, il lotto delle 00:01 nasceva col
+  /// giorno nuovo (revisione 6/10/2026).
+  DateTime get _day => _picked ?? _today;
+
+  Timer? _midnight;
+  late final AppLifecycleListener _lifecycle;
+
+  void _scheduleMidnight() {
+    _midnight?.cancel();
+    final now = DateTime.now();
+    final next = DateTime(now.year, now.month, now.day + 1, 0, 0, 2);
+    _midnight = Timer(next.difference(now), () {
+      _dayChanged();
+      _scheduleMidnight();
+    });
+  }
+
+  void _dayChanged() {
+    if (!mounted) return;
+    final reset = _picked != null && _pickedOn != _today;
+    setState(() {
+      if (reset) _picked = null;
+    });
+    if (reset) {
+      toast(context, 'È cambiato il giorno: la data di produzione è tornata a oggi');
+      _load();
+    }
   }
 
   @override
   void initState() {
     super.initState();
     archiveChanged.addListener(_load);
+    _lifecycle = AppLifecycleListener(onResume: () {
+      _dayChanged();
+      _scheduleMidnight();
+    });
+    _scheduleMidnight();
     _load();
   }
 
   @override
   void dispose() {
+    _midnight?.cancel();
+    _lifecycle.dispose();
     archiveChanged.removeListener(_load);
     super.dispose();
   }
@@ -114,7 +150,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
     if (body == null) return;
     final lot = body['lotto_interno'] as Map<String, dynamic>;
     _product.clear();
-    _ingredients.clear();
+    setState(_ingredients.clear);
     _load();
     if (print) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => PrintScreen(lot)));

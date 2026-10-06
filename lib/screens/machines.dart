@@ -32,20 +32,36 @@ class _MachinesScreenState extends State<MachinesScreen> {
     super.dispose();
   }
 
+  /// Ogni caricamento ha un numero e solo l'ultimo riprogramma il timer:
+  /// prima un aggiornamento a mano durante quello automatico lasciava due
+  /// catene di richieste ogni 5 secondi, e cosi' via (revisione 6/10/2026).
+  int _request = 0;
+
   Future<void> _load() async {
+    final request = ++_request;
     _timer?.cancel();
     try {
       final data = await Api.instance.get('/admin/macchine');
-      if (mounted) {
+      if (mounted && request == _request) {
         setState(() {
           _data = data;
           _error = null;
         });
       }
     } on ApiError catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && request == _request) setState(() => _error = e.message);
     }
-    if (mounted) _timer = Timer(const Duration(seconds: 5), _load);
+    if (mounted && request == _request) {
+      _timer = Timer(const Duration(seconds: 5), () => appVisible ? _load() : _waitVisible());
+    }
+  }
+
+  void _waitVisible() {
+    final request = _request;
+    _timer = Timer(const Duration(seconds: 5), () {
+      if (request != _request || !mounted) return;
+      appVisible ? _load() : _waitVisible();
+    });
   }
 
   Future<void> _action(String action, String title, String detail) async {

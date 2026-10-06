@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../api.dart';
 import '../platform/platform.dart' as platform;
 import '../ui.dart';
+import 'home.dart';
 import 'reading.dart';
 
 /// Foto di un'etichetta: una o piu' foto dello stesso prodotto (il coperchio
@@ -27,24 +28,102 @@ class _CaptureScreenState extends State<CaptureScreen> {
   bool _sending = false;
   String _progress = '';
   static const _maxPhotos = 5;
+  /// Foto non inviate o invio in corso: niente proposta di aggiornamento.
+  final _unsaved = UnsavedFlag();
 
   @override
   void initState() {
     super.initState();
+    _caption.addListener(_remember);
     _recover();
   }
 
-  /// Se Android ha chiuso l'app mentre la fotocamera era aperta, la foto
-  /// scattata si recupera qui invece di andare persa.
+  @override
+  void dispose() {
+    _unsaved.set(false);
+    _caption.removeListener(_remember);
+    super.dispose();
+  }
+
+  /// Foto e nome restano salvati finche' non sono inviati: se il telefono
+  /// chiude l'app (Android) o Safari ricarica la pagina (iPhone) mentre la
+  /// fotocamera e' aperta, al ritorno ci sono ancora (revisione 6/10/2026).
+  void _remember() {
+    _unsaved.set(_photos.isNotEmpty || _sending);
+    if (_photos.isEmpty) {
+      platform.clearPendingPhotos();
+    } else {
+      platform.savePendingPhotos(List.of(_photos), _caption.text, _batchKey ?? '', null);
+    }
+  }
+
+  void _changed(VoidCallback change) {
+    setState(change);
+    _remember();
+  }
+
+  /// Al ritorno: le foto salvate prima (vedi _remember) e, su Android, quella
+  /// appena scattata se il sistema aveva chiuso l'app. Una foto scattata da
+  /// una scheda ("Aggiungi una foto") torna alla sua scheda, non qui.
   Future<void> _recover() async {
+    final pending = await platform.loadPendingPhotos();
+    if (pending != null && pending.itemId == null && mounted && _photos.isEmpty) {
+      setState(() {
+        _photos.addAll(pending.photos.take(_maxPhotos));
+        if (_caption.text.isEmpty) _caption.text = pending.caption;
+        _batchKey = pending.batch.isEmpty ? null : pending.batch;
+      });
+      _remember();
+    }
     if (platform.isWebApp) return; // solo Android chiude l'app mentre fotografa
     try {
       final lost = await _picker.retrieveLostData();
-      if (!lost.isEmpty && lost.files != null) {
-        final bytes = [for (final f in lost.files!) await f.readAsBytes()];
-        if (mounted) setState(() => _photos.addAll(bytes));
+      if (lost.isEmpty || lost.files == null) return;
+      final bytes = [for (final f in lost.files!) await f.readAsBytes()];
+      final forCard = int.tryParse(await Api.instance.readSetting('scatto_per_scheda') ?? '');
+      await Api.instance.writeSetting('scatto_per_scheda', null);
+      if (!mounted) return;
+      if (forCard != null) {
+        await _offerToCard(forCard, bytes);
+      } else {
+        _changed(() => _photos.addAll(bytes.take(_maxPhotos - _photos.length)));
       }
     } catch (_) {}
+  }
+
+  /// Una foto scattata dalla scheda #id mentre Android chiudeva l'app: si
+  /// chiede dove va, invece di farla finire in una scheda nuova senza dirlo.
+  Future<void> _offerToCard(int itemId, List<Uint8List> bytes) async {
+    final choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Foto ritrovata'),
+        content: Text('Questa foto era per la scheda #$itemId, ma l\'app si era chiusa. Dove la metto?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, 'via'), child: const Text('Buttala')),
+          TextButton(onPressed: () => Navigator.pop(context, 'nuova'), child: const Text('Scheda nuova')),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(context, 'scheda'),
+            child: Text('Alla scheda #$itemId'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'nuova') {
+      _changed(() => _photos.addAll(bytes.take(_maxPhotos - _photos.length)));
+    } else if (choice == 'scheda') {
+      final key = _newKey();
+      for (var i = 0; i < bytes.length; i++) {
+        final ok = await attempt(context, () => Api.instance.uploadPhoto('/schede/$itemId/foto', bytes[i], key: '$key-$i'));
+        if (ok == null) return;
+      }
+      forgetItemPhoto(itemId);
+      archiveChanged.value++;
+      if (mounted) toast(context, 'Foto aggiunta alla scheda #$itemId');
+    }
   }
 
   Future<void> _take(ImageSource source) async {
@@ -53,12 +132,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
       if (source == ImageSource.gallery) {
         final files = await _picker.pickMultiImage(maxWidth: 2400, maxHeight: 2400, imageQuality: 88, limit: _maxPhotos);
         final bytes = [for (final f in files.take(_maxPhotos - _photos.length)) await f.readAsBytes()];
-        if (mounted) setState(() => _photos.addAll(bytes));
+        if (mounted) _changed(() => _photos.addAll(bytes));
       } else {
         final file = await _picker.pickImage(source: source, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
         if (file != null) {
           final bytes = await file.readAsBytes();
-          if (mounted) setState(() => _photos.add(bytes));
+          if (mounted) _changed(() => _photos.add(bytes));
         }
       }
     } catch (e) {
@@ -96,11 +175,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
       );
       if (go != true || !mounted) return;
     }
-    setState(() {
+    _batchKey ??= _newKey();
+    _changed(() {
       _sending = true;
       _progress = 'Invio foto ${_sentCount + 1} di ${_photos.length}…';
     });
-    _batchKey ??= _newKey();
     try {
       if (_sentItem == null) {
         final first = await Api.instance.uploadPhoto('/foto', _photos.first, caption: _caption.text, key: '$_batchKey-0');
@@ -119,7 +198,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       }
       final count = _photos.length;
       final twin = _twin;
-      setState(() {
+      _changed(() {
         _photos.clear();
         _caption.clear();
         _sending = false;
@@ -139,7 +218,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       // Qualunque errore (rete, foto sparita dalla cache): i tasti tornano
       // attivi e si puo' riprovare.
       if (!mounted) return;
-      setState(() => _sending = false);
+      _changed(() => _sending = false);
       final message = e is ApiError ? e.message : 'errore imprevisto ($e)';
       final partial = _sentItem != null
           ? ' La scheda #$_sentItem è già creata con $_sentCount foto: "Invia" manda solo le altre.'
@@ -188,7 +267,15 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         child: IconButton.filled(
                           tooltip: 'Togli questa foto',
                           style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                          onPressed: _sending || i < _sentCount ? null : () => setState(() => _photos.removeAt(i)),
+                          // Una foto cambiata prima che la scheda esista vuole una
+                          // chiave nuova: con la vecchia il server riconosceva
+                          // "lo stesso invio" e teneva la foto tolta (6/10/2026).
+                          onPressed: _sending || i < _sentCount
+                              ? null
+                              : () => _changed(() {
+                                    _photos.removeAt(i);
+                                    if (_sentItem == null) _batchKey = null;
+                                  }),
                           icon: const Icon(Symbols.close_rounded, color: Colors.white),
                         ),
                       ),

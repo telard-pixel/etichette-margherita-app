@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   late final AppLifecycleListener _lifecycle;
   Timer? _watch;
+  DateTime? _hiddenAt;
   String? _lastMarker;
 
   /// Ogni 15 secondi, con l'app in primo piano, si chiede al server se
@@ -59,12 +60,20 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => Updater.offerIfNew(context));
     _lifecycle = AppLifecycleListener(
       onResume: () {
-        archiveChanged.value++;
+        // Nel browser basta cliccare fuori dalla finestra e rientrare per
+        // "tornare in primo piano": si ricarica tutto solo se l'app e' stata
+        // nascosta per piu' di 30 secondi (revisione 6/10/2026).
+        final away = _hiddenAt == null ? null : DateTime.now().difference(_hiddenAt!);
+        _hiddenAt = null;
+        if (away == null || away > const Duration(seconds: 30)) archiveChanged.value++;
         _startWatching();
         if (mounted) Updater.offerIfNew(context, onResume: true);
       },
       // In secondo piano niente domande: si riparte al ritorno.
-      onHide: () => _watch?.cancel(),
+      onHide: () {
+        _hiddenAt ??= DateTime.now();
+        _watch?.cancel();
+      },
     );
     _startWatching();
   }
