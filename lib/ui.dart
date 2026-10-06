@@ -483,7 +483,13 @@ Future<Uint8List> _loadPhoto(int itemId, PhotoSize size, int? extraId) {
       _photoCache[key] = bytes;
     }
     return bytes;
-  }().whenComplete(() => _photoLoading.remove(key));
+  }().whenComplete(() {
+    // Graffe, non "=> remove(key)": remove restituisce proprio questo Future,
+    // e whenComplete aspetterebbe se stesso per sempre. La foto restava
+    // "in caricamento" finche' il riquadro non veniva ricreato (dal 2/10,
+    // trovato il 6/10/2026: miniature dell'Archivio che non comparivano).
+    _photoLoading.remove(key);
+  });
 }
 
 /// Comincia a scaricare una foto prima che serva (scheda che si sta aprendo,
