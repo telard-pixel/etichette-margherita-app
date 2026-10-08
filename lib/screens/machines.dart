@@ -109,7 +109,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
               Text(detail, style: TextStyle(fontSize: 12, color: C.muted)),
             ]),
           ),
-          if (trailing != null) trailing,
+          ?trailing,
         ]),
       );
 
