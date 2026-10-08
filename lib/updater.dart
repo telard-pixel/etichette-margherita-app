@@ -8,7 +8,7 @@ import 'ui.dart';
 
 class UpdateInfo {
   UpdateInfo(this.installedName, this.installedBuild, this.latestName, this.latestBuild,
-      {this.apkSha256, this.webBuild});
+      {this.apkSha256, this.webBuild, this.notice});
   final String installedName;
   final int installedBuild;
   final String? latestName;
@@ -18,6 +18,8 @@ class UpdateInfo {
   final String? apkSha256;
   /// La versione web pubblicata (per la pagina aperta da giorni).
   final int? webBuild;
+  /// Un avviso del server da mostrare una volta (es. manutenzione notturna).
+  final Map<String, dynamic>? notice;
   bool get available => latestBuild != null && latestBuild! > installedBuild;
 }
 
@@ -42,6 +44,7 @@ class Updater {
       body['app_ultima_build'] as int?,
       apkSha256: body['app_apk_sha256'] as String?,
       webBuild: body['web_ultima_build'] as int?,
+      notice: body['avviso'] is Map ? (body['avviso'] as Map).cast<String, dynamic>() : null,
     );
   }
 
@@ -93,6 +96,8 @@ class Updater {
     } catch (_) {
       return;
     }
+    if (!context.mounted) return;
+    await _showNotice(context, info.notice);
     if (!context.mounted || unsavedWork.value > 0) return;
     if (platform.isWebApp) return _offerWebReload(context, info);
     // Un aggiornamento gia' tentato e non installato (di solito: firma
@@ -134,6 +139,31 @@ class Updater {
       ),
     );
     if (yes == true && context.mounted) await install(context, info);
+  }
+
+  /// Un avviso del server (manutenzione e simili, 8/10/2026): una finestra,
+  /// una volta sola per avviso su questo telefono o browser.
+  static Future<void> _showNotice(BuildContext context, Map<String, dynamic>? notice) async {
+    final id = notice?['id'] as String?;
+    if (notice == null || id == null || id.isEmpty) return;
+    if (await Api.instance.readSetting('avviso_visto') == id || !context.mounted) return;
+    await Api.instance.writeSetting('avviso_visto', id);
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.build_circle_outlined, size: 32),
+        title: Text(notice['titolo'] as String? ?? 'Avviso'),
+        content: SingleChildScrollView(child: Text(notice['testo'] as String? ?? '')),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Ho capito'),
+          ),
+        ],
+      ),
+    );
   }
 
   static Future<void> install(BuildContext context, [UpdateInfo? info]) async {
