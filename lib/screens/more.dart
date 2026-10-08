@@ -5,6 +5,7 @@ import '../api.dart';
 import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import '../updater.dart';
+import 'about.dart';
 import 'login.dart';
 import 'machines.dart';
 import 'users.dart';
@@ -273,6 +274,16 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           const SizedBox(height: 12),
           ],
+          Panel(
+            padding: EdgeInsets.zero,
+            child: MenuRow(
+              icon: Symbols.info_rounded,
+              title: 'Informazioni',
+              subtitle: 'Versione, dati salvati, licenze',
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
+            ),
+          ),
+          const SizedBox(height: 12),
           Panel(padding: EdgeInsets.zero, child: MenuRow(icon: Symbols.logout_rounded, title: 'Esci', danger: true, onTap: _logout)),
         ]),
       ),

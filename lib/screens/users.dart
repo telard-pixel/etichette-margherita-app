@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
@@ -178,11 +179,15 @@ class _NewUserDialogState extends State<_NewUserDialog> {
               decoration: const InputDecoration(labelText: 'Nome e cognome'),
             ),
             const SizedBox(height: 10),
+            // Nascosto mentre si scrive (8/10/2026): in cucina c'e' sempre
+            // qualcuno vicino.
             TextField(
               controller: _pin,
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              obscureText: true,
               maxLength: 12,
-              decoration: const InputDecoration(labelText: 'PIN (almeno 4 cifre)'),
+              decoration: const InputDecoration(labelText: 'PIN (almeno 4 cifre)', helperText: 'Non 1234, 0000 o simili'),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -246,8 +251,10 @@ class _UserScreenState extends State<UserScreen> {
           controller: pin,
           autofocus: true,
           keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          obscureText: true,
           maxLength: 12,
-          decoration: const InputDecoration(labelText: 'Almeno 4 cifre'),
+          decoration: const InputDecoration(labelText: 'Almeno 4 cifre', helperText: 'Non 1234, 0000 o simili'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),

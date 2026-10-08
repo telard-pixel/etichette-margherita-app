@@ -41,8 +41,11 @@ DIAGNOSTICA = """
       box.innerHTML = '<h2 style="margin-top:40px">La pagina non si è avviata</h2>'
         + '<p>Il browser non riesce a far partire l&#39;app. Il motivo è stato mandato al server.</p>'
         + '<pre style="white-space:pre-wrap;font-size:12px;color:#A9B2C3"></pre>'
-        + '<button style="font-size:16px;padding:12px 18px;border-radius:10px;border:0;background:#D9C4A3;color:#1B2333" onclick="location.reload()">Riprova</button>';
+        + '<button style="font-size:16px;padding:12px 18px;border-radius:10px;border:0;background:#D9C4A3;color:#1B2333">Riprova</button>';
       box.querySelector('pre').textContent = problems.join('\\n') || 'Nessun errore dal browser (forse memoria o grafica non supportata).';
+      // Niente onclick scritto nella pagina: la protezione del server (CSP,
+      // 8/10/2026) lascia partire solo gli script di questo file.
+      box.querySelector('button').addEventListener('click', function () { location.reload(); });
       document.body.appendChild(box);
     }
     send('avvio');

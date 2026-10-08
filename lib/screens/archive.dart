@@ -433,6 +433,33 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             ]),
           ),
         const SizedBox(height: 4),
+        // Elenco gia' in vista ma l'ultimo aggiornamento non e' riuscito
+        // (8/10/2026): prima restava quello vecchio senza dirlo.
+        if (_error != null && _items.isNotEmpty && !_loading)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+            child: Material(
+              color: C.warnBg,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _load,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(children: [
+                    Icon(Symbols.cloud_off_rounded, size: 18, color: C.warnFg),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Non aggiornato: $_error',
+                          maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: C.warnFg)),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('Riprova', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: C.warnFg)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
         Expanded(child: _body()),
       ]),
     );

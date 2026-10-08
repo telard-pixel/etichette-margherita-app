@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'api.dart';
+import 'error_report.dart';
 import 'platform/platform.dart' as platform;
 import 'screens/home.dart';
 import 'screens/login.dart';
@@ -13,6 +14,7 @@ final navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ErrorReport.install();
   // Tema chiaro o scuro come il telefono (o il computer), gia' dal primo
   // disegno.
   C.dark = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
