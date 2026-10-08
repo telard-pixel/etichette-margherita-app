@@ -48,7 +48,7 @@ class ErrorReport {
       'piattaforma': platform.isWebApp ? 'web' : 'android',
       'versione': _version,
       'dispositivo': await platform.deviceName(),
-      if (where != null) 'dove': where,
+      'dove': ?where,
       'errore': text.length > 600 ? '${text.substring(0, 600)}…' : text,
       'stack': lines.length > 900 ? lines.substring(0, 900) : lines,
     });
