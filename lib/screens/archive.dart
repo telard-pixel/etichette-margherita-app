@@ -10,6 +10,7 @@ import '../ui.dart';
 import 'home.dart';
 import 'item.dart';
 import 'multi_print.dart';
+import 'proposals.dart';
 
 enum Filter { all, today, review, app }
 
@@ -383,6 +384,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               ]),
       ),
       body: Column(children: [
+        LotProposalsPanel(
+          reloadOn: archiveChanged,
+          onChanged: () => archiveChanged.value++,
+          onCorrect: (id) => openItem(context, id),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: TextField(

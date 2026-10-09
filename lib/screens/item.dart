@@ -11,6 +11,7 @@ import '../ui.dart';
 import 'inline_edit.dart';
 import 'home.dart';
 import 'print.dart';
+import 'proposals.dart';
 
 bool _opening = false;
 
@@ -366,6 +367,11 @@ class _ItemScreenState extends State<ItemScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                LotProposalsPanel(
+                  onlyItem: widget.itemId,
+                  showPhoto: false,
+                  onChanged: () => _load(),
+                ),
                 Panel(
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
