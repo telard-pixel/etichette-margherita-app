@@ -11,6 +11,7 @@ import 'screens/login.dart';
 import 'ui.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
+final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,10 @@ void main() {
         ? const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light, statusBarBrightness: Brightness.dark)
         : const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.dark, statusBarBrightness: Brightness.light),
   );
+  Api.onEngineNotice = (notice) {
+    final messenger = messengerKey.currentState;
+    if (messenger != null) showEngineNotice(messenger, notice);
+  };
   runApp(const EtichetteApp());
   // Nella versione web il gesto "indietro" chiude la schermata aperta (se
   // ce n'e' una) invece di ricaricare la pagina.
@@ -38,6 +43,7 @@ class EtichetteApp extends StatelessWidget {
         title: 'Etichette Margherita',
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
+        scaffoldMessengerKey: messengerKey,
         // Sul computer le foto della scheda e le liste si trascinano anche
         // col mouse (prima solo col dito: col mouse non si sfogliavano).
         scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {

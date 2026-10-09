@@ -630,6 +630,34 @@ void toast(BuildContext context, String text, {bool error = false}) {
     ));
 }
 
+/// Il motore AI e' occupato da altro: la foto e' stata ricevuta ma potrebbe
+/// essere letta tardi o male, meglio rimandarla piu' tardi. Una volta per
+/// episodio (id del server), o di nuovo dopo due minuti: cosi' una serie di
+/// foto non riempie lo schermo di avvisi.
+String? _engineNoticeId;
+DateTime? _engineNoticeAt;
+
+void showEngineNotice(ScaffoldMessengerState messenger, Map<String, dynamic> notice) {
+  final id = notice['id'] as String? ?? '';
+  final now = DateTime.now();
+  if (id == _engineNoticeId && _engineNoticeAt != null && now.difference(_engineNoticeAt!) < const Duration(minutes: 2)) return;
+  _engineNoticeId = id;
+  _engineNoticeAt = now;
+  final text = notice['testo'] as String? ?? 'Il motore AI è occupato: rimanda le foto tra qualche minuto.';
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      duration: const Duration(seconds: 12),
+      backgroundColor: const Color(0xFFA3601B),
+      content: Row(children: [
+        const Icon(Icons.hourglass_top_rounded, color: Colors.white),
+        const SizedBox(width: 12),
+        Expanded(child: Text(text, style: const TextStyle(color: Colors.white))),
+      ]),
+      action: SnackBarAction(label: 'OK', textColor: Colors.white, onPressed: () {}),
+    ));
+}
+
 /// Esegue una richiesta e mostra l'errore, se c'e'. Null se fallita.
 Future<T?> attempt<T>(BuildContext context, Future<T> Function() call) async {
   try {

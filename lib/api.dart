@@ -26,6 +26,11 @@ class Api {
   Api._();
   static final Api instance = Api._();
 
+  /// Il server dice, dopo ogni foto inviata, se il motore AI e' occupato da
+  /// altro (gioco sul PC che lo esegue, lentezza): chi se ne occupa mostra
+  /// l'avviso (9/10/2026).
+  static void Function(Map<String, dynamic> notice)? onEngineNotice;
+
   final _storage = const FlutterSecureStorage();
   final http.Client _client = http.Client();
 
@@ -197,7 +202,10 @@ class Api {
         if (caption.trim().isNotEmpty) request.fields['didascalia'] = caption.trim();
         if (key != null) request.fields['chiave'] = key;
         final streamed = await _client.send(request).timeout(const Duration(minutes: 3));
-        return _decode(await http.Response.fromStream(streamed));
+        final body = await _decode(await http.Response.fromStream(streamed));
+        final notice = body['avviso_motore'];
+        if (notice is Map) onEngineNotice?.call(notice.cast<String, dynamic>());
+        return body;
       });
 
   /// Immagini e file (etichetta PNG, esportazioni): i byte, o un errore.
