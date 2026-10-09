@@ -132,8 +132,7 @@ class _LotProposalsPanelState extends State<LotProposalsPanel> {
 
   Widget _card(Map<String, dynamic> p) {
     final id = p['scheda'] as int;
-    final lora = p['lora'] as String?;
-    final base = p['base'] as String?;
+    final labels = {for (final (key, label) in _readers) key: label};
     final busy = _busy != null;
     return Panel(
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -149,13 +148,14 @@ class _LotProposalsPanelState extends State<LotProposalsPanel> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text((p['prodotto'] as String?) ?? 'Scheda $id', style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 2),
-            Text('Lotto non sicuro: i due lettori non coincidono', style: TextStyle(fontSize: 13, color: C.muted)),
+            Text('Lotto non sicuro: i lettori non coincidono', style: TextStyle(fontSize: 13, color: C.muted)),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              if (lora != null)
-                FilledButton.tonal(onPressed: busy ? null : () => _respond(p, 'lora'), child: Text('È $lora (LoRA)')),
-              if (base != null)
-                FilledButton.tonal(onPressed: busy ? null : () => _respond(p, 'base'), child: Text('È $base (base)')),
+              for (final c in lotCandidates(p))
+                FilledButton.tonal(
+                  onPressed: busy ? null : () => _respond(p, _choicePriority.firstWhere(c.sources.contains)),
+                  child: Text('È ${c.lot} (${c.sources.map((k) => labels[k]).join(' e ')})'),
+                ),
               OutlinedButton(onPressed: busy ? null : () => _respond(p, 'manuale'), child: const Text('No, correggo io')),
             ]),
           ]),
@@ -163,4 +163,28 @@ class _LotProposalsPanelState extends State<LotProposalsPanel> {
       ]),
     );
   }
+}
+
+String _fold(String value) => value.toUpperCase().replaceAll(RegExp(r'[^0-9A-Z]'), '');
+
+/// Chi legge cosa, nell'ordine in cui lo si mostra.
+const _readers = [('ruotata', 'foto ruotata'), ('lora', 'LoRA'), ('base', 'base')];
+
+/// Quale risposta scrive il lotto letto da piu' lettori insieme.
+const _choicePriority = ['lora', 'base', 'ruotata'];
+
+/// I lotti letti, ciascuno una volta, con chi li ha letti.
+List<({String lot, List<String> sources})> lotCandidates(Map<String, dynamic> p) {
+  final groups = <({String lot, List<String> sources})>[];
+  for (final (key, _) in _readers) {
+    final lot = p[key] as String?;
+    if (lot == null || lot.isEmpty) continue;
+    final i = groups.indexWhere((g) => _fold(g.lot) == _fold(lot));
+    if (i >= 0) {
+      groups[i].sources.add(key);
+    } else {
+      groups.add((lot: lot, sources: [key]));
+    }
+  }
+  return groups;
 }

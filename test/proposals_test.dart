@@ -3,8 +3,15 @@ import 'package:etichette_margherita/screens/proposals.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Map<String, dynamic> _p(int id, {String? lora = 'AB123', String? base = 'AB128'}) =>
-    {'scheda': id, 'prodotto': 'Pomodoro', 'lotto_attuale': null, 'lora': lora, 'base': base, 'creata': '2026-10-09T10:00:00+00:00'};
+Map<String, dynamic> _p(int id, {String? lora = 'AB123', String? base = 'AB128', String? ruotata}) => {
+      'scheda': id,
+      'prodotto': 'Pomodoro',
+      'lotto_attuale': null,
+      'lora': lora,
+      'base': base,
+      'ruotata': ruotata,
+      'creata': '2026-10-09T10:00:00+00:00',
+    };
 
 Widget _host(Widget child) => MaterialApp(home: Scaffold(body: SingleChildScrollView(child: child)));
 
@@ -30,6 +37,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('(LoRA)'), findsNothing);
     expect(find.text('È AB128 (base)'), findsOneWidget);
+  });
+
+  testWidgets('con tre lettori un pulsante ciascuno, con chi ha letto cosa', (tester) async {
+    await tester.pumpWidget(_host(LotProposalsPanel(showPhoto: false, load: () async => [_p(7, ruotata: 'ZZ999')])));
+    await tester.pumpAndSettle();
+    expect(find.text('È ZZ999 (foto ruotata)'), findsOneWidget);
+    expect(find.text('È AB123 (LoRA)'), findsOneWidget);
+    expect(find.text('È AB128 (base)'), findsOneWidget);
+  });
+
+  testWidgets('i lettori che concordano hanno un solo pulsante', (tester) async {
+    final calls = <String>[];
+    await tester.pumpWidget(_host(LotProposalsPanel(
+      showPhoto: false,
+      load: () async => [_p(7, lora: 'AB-123', base: 'ab123', ruotata: 'ZZ999')],
+      answer: (id, choice) async {
+        calls.add(choice);
+        return {'ok': true, 'scelta': choice, 'lotto': 'AB-123'};
+      },
+    )));
+    await tester.pumpAndSettle();
+    expect(find.text('È AB-123 (LoRA e base)'), findsOneWidget);
+    expect(find.textContaining('(base)'), findsNothing);
+    await tester.tap(find.text('È AB-123 (LoRA e base)'));
+    await tester.pumpAndSettle();
+    expect(calls, ['lora']);
+  });
+
+  testWidgets('se ha letto solo la foto ruotata risponde ruotata', (tester) async {
+    final calls = <String>[];
+    await tester.pumpWidget(_host(LotProposalsPanel(
+      showPhoto: false,
+      load: () async => [_p(7, lora: null, base: null, ruotata: '8000729')],
+      answer: (id, choice) async {
+        calls.add(choice);
+        return {'ok': true, 'scelta': choice, 'lotto': '8000729'};
+      },
+    )));
+    await tester.pumpAndSettle();
+    expect(find.text('È 8000729 (foto ruotata)'), findsOneWidget);
+    await tester.tap(find.text('È 8000729 (foto ruotata)'));
+    await tester.pumpAndSettle();
+    expect(calls, ['ruotata']);
   });
 
   testWidgets('toccare un motore risponde e toglie la domanda', (tester) async {
