@@ -270,6 +270,27 @@ class _UserScreenState extends State<UserScreen> {
     await _set({'pin': value}, _isMe ? 'PIN cambiato' : 'PIN cambiato: dovrà rientrare con quello nuovo');
   }
 
+  /// Una domanda prima di togliere qualcosa a una persona (diritti, accesso): si fa con un tocco, ma
+  /// non per sbaglio.
+  Future<bool> _confirm(String title, String text, String action) async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(text),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: C.badFg),
+            child: Text(action),
+          ),
+        ],
+      ),
+    );
+    return sure == true && mounted;
+  }
+
   Future<void> _disconnect() async {
     final sure = await showDialog<bool>(
       context: context,
@@ -356,14 +377,32 @@ class _UserScreenState extends State<UserScreen> {
                 title: const Text('Amministratore'),
                 subtitle: const Text('Utenti, esportazioni, elimina e rileggi schede'),
                 value: _u['admin'] == true,
-                onChanged: _isMe ? null : (v) => _set({'admin': v}, v ? 'Ora è amministratore' : 'Non è più amministratore'),
+                onChanged: _isMe
+                    ? null
+                    : (v) async {
+                        if (!v &&
+                            !await _confirm('Togliere i diritti da amministratore a ${_u['nome']}?',
+                                'Non potrà più gestire utenti, esportazioni, elimina e rileggi schede.', 'Togli')) {
+                          return;
+                        }
+                        await _set({'admin': v}, v ? 'Ora è amministratore' : 'Non è più amministratore');
+                      },
               ),
               divider,
               SwitchListTile(
                 title: const Text('Attivo'),
                 subtitle: const Text('Se spento non può più entrare'),
                 value: _u['attivo'] == true,
-                onChanged: _isMe ? null : (v) => _set({'attivo': v}, v ? 'Riattivato' : 'Disattivato e scollegato'),
+                onChanged: _isMe
+                    ? null
+                    : (v) async {
+                        if (!v &&
+                            !await _confirm('Disattivare ${_u['nome']}?',
+                                'Esce da tutti i telefoni e non potrà più entrare finché non lo riattivi.', 'Disattiva')) {
+                          return;
+                        }
+                        await _set({'attivo': v}, v ? 'Riattivato' : 'Disattivato e scollegato');
+                      },
               ),
             ]),
           ),
