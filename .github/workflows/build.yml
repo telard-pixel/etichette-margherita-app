@@ -52,6 +52,8 @@ jobs:
           sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
           grep -q "minSdk = 24" android/app/build.gradle.kts
 
+      # pubspec.lock e' nel repository (10/10/2026): le librerie sono quelle provate, non quelle che
+      # escono quel giorno. Per aggiornarle: modificare pubspec.yaml e prendere il lock dalla CI.
       - run: flutter pub get
 
       - name: Controllo del codice
@@ -120,7 +122,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" EtichetteMargherita-*.apk \
+          # --target: il tag va sul commit compilato, non sulla punta di main (con due push
+          # ravvicinati la release 1.0.N avrebbe avuto il tag del commit dopo).
+          gh release create "v$VERSION" EtichetteMargherita-*.apk --target "$GITHUB_SHA" \
             --title "Etichette Margherita $VERSION" \
             --notes "Si aggiorna da sola dall'app (Altro › Aggiornamento). L'APK è anche qui sotto." \
           || gh release upload "v$VERSION" EtichetteMargherita-*.apk --clobber
