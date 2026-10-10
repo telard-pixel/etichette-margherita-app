@@ -52,13 +52,9 @@ jobs:
           sed -i -E 's/minSdk = flutter\.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts
           grep -q "minSdk = 24" android/app/build.gradle.kts
 
+      # pubspec.lock e' nel repository (10/10/2026): le librerie sono quelle provate, non quelle che
+      # escono quel giorno. Per aggiornarle: modificare pubspec.yaml e prendere il lock dalla CI.
       - run: flutter pub get
-
-      - name: (temporaneo) pubspec.lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: pubspec-lock
-          path: pubspec.lock
 
       - name: Controllo del codice
         run: flutter analyze --no-fatal-infos
