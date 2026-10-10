@@ -370,7 +370,9 @@ class _ItemScreenState extends State<ItemScreen> {
                 LotProposalsPanel(
                   onlyItem: widget.itemId,
                   showPhoto: false,
-                  onChanged: () => _load(),
+                  padding: const EdgeInsets.fromLTRB(16, 26, 16, 6),
+                  // La scheda si ricarica da sola (ascolta archiveChanged) e cosi' anche l'elenco.
+                  onChanged: () => archiveChanged.value++,
                 ),
                 Panel(
                   padding: const EdgeInsets.all(16),

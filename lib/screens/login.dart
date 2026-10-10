@@ -64,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
     _nameFocus.dispose();
+    _name.dispose();
     super.dispose();
   }
 

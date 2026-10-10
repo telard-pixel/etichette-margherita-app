@@ -61,6 +61,9 @@ class _IngredientSheetState extends State<_IngredientSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _search.dispose();
+    _name.dispose();
+    _lot.dispose();
     super.dispose();
   }
 

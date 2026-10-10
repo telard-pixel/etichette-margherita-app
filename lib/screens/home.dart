@@ -55,6 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Dopo Esci o un accesso scaduto la scheda visibile e' di nuovo l'Archivio: senza, i suoi
+    // aggiornamenti automatici (schede in lettura) non ripartivano.
+    currentTab.value = 0;
     // Un'occhiata agli aggiornamenti a ogni avvio e quando l'app torna in
     // primo piano: in cucina resta aperta per giorni senza mai ripartire.
     WidgetsBinding.instance.addPostFrameCallback((_) => Updater.offerIfNew(context));

@@ -42,6 +42,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   void dispose() {
     _unsaved.set(false);
     _caption.removeListener(_remember);
+    _caption.dispose();
     super.dispose();
   }
 
@@ -130,9 +131,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
     try {
       // 2400 px bastano a leggere lotti minuscoli e pesano un quinto dell'originale.
       if (source == ImageSource.gallery) {
+        if (_photos.length >= _maxPhotos) {
+          toast(context, 'Hai già $_maxPhotos foto: togline una per aggiungerne altre');
+          return;
+        }
         final files = await _picker.pickMultiImage(maxWidth: 2400, maxHeight: 2400, imageQuality: 88, limit: _maxPhotos);
-        final bytes = [for (final f in files.take(_maxPhotos - _photos.length)) await f.readAsBytes()];
-        if (mounted) _changed(() => _photos.addAll(bytes));
+        final room = _maxPhotos - _photos.length;
+        final bytes = [for (final f in files.take(room)) await f.readAsBytes()];
+        if (!mounted) return;
+        _changed(() => _photos.addAll(bytes));
+        if (files.length > room) toast(context, 'Ho preso ${bytes.length} foto su ${files.length}: il massimo è $_maxPhotos per scheda');
       } else {
         final file = await _picker.pickImage(source: source, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
         if (file != null) {

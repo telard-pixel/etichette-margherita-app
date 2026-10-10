@@ -93,6 +93,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
     _midnight?.cancel();
     _lifecycle.dispose();
     archiveChanged.removeListener(_load);
+    _product.dispose();
     super.dispose();
   }
 

@@ -23,6 +23,7 @@ class LotProposalsPanel extends StatefulWidget {
     this.reloadOn,
     this.refresh = const Duration(seconds: 30),
     this.maxShown = 3,
+    this.padding = const EdgeInsets.fromLTRB(16, 4, 16, 6),
   });
 
   /// Solo la domanda di questa scheda (dentro la scheda); null = tutte.
@@ -41,6 +42,9 @@ class LotProposalsPanel extends StatefulWidget {
   final Duration refresh;
   final int maxShown;
 
+  /// Attorno al riquadro quando c'e' (senza domande non occupa niente).
+  final EdgeInsets padding;
+
   @override
   State<LotProposalsPanel> createState() => _LotProposalsPanelState();
 }
@@ -57,17 +61,25 @@ class _LotProposalsPanelState extends State<LotProposalsPanel> {
     return (body['proposte'] as List).cast<Map<String, dynamic>>();
   }
 
+  /// Numero dell'ultima richiesta partita: una risposta vecchia, arrivata dopo una piu' recente (o
+  /// dopo la risposta di una persona), non deve rimettere a posto domande gia' risolte.
+  int _request = 0;
+
   Future<void> _reload() async {
+    final mine = ++_request;
     try {
       var list = await _fetch();
+      if (mine != _request) return;
       final only = widget.onlyItem;
       if (only != null) list = list.where((p) => p['scheda'] == only).toList();
       if (mounted) setState(() => _items = list);
-    } on ApiError {
-      // Server di prima delle domande (404) o accesso scaduto: niente riquadro.
-      if (mounted) setState(() => _items = []);
+    } on ApiError catch (e) {
+      if (mine != _request) return;
+      // Server di prima delle domande (404) o accesso non valido (401, 403): niente riquadro.
+      // Con la rete assente o lenta (status 0) o un errore del server si tiene quello che c'e'.
+      if (mounted && (e.status == 401 || e.status == 403 || e.status == 404)) setState(() => _items = []);
     } catch (_) {
-      // senza rete si tiene quello che c'e' e si riprova al giro dopo
+      // errore imprevisto: si tiene quello che c'e' e si riprova al giro dopo
     }
   }
 
@@ -99,6 +111,7 @@ class _LotProposalsPanelState extends State<LotProposalsPanel> {
         await _reload();
         return;
       }
+      _request++; // una lettura partita prima di questa risposta non vale piu'
       setState(() => _items = _items.where((x) => x['scheda'] != id).toList());
       widget.onChanged?.call();
       if (choice == 'manuale') {
@@ -117,7 +130,7 @@ class _LotProposalsPanelState extends State<LotProposalsPanel> {
     final shown = _items.take(widget.maxShown).toList();
     final more = _items.length - shown.length;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+      padding: widget.padding,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Padding(padding: EdgeInsets.only(bottom: 6), child: SectionLabel('Da confermare')),
         for (final p in shown) Padding(padding: const EdgeInsets.only(bottom: 8), child: _card(p)),

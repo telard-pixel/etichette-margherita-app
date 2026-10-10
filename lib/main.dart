@@ -102,7 +102,12 @@ class _StartGateState extends State<StartGate> {
   }
 
   Future<void> _start() async {
-    final ok = await Api.instance.restore();
+    var ok = false;
+    try {
+      ok = await Api.instance.restore();
+    } catch (_) {
+      // risposta inattesa dal server: si riparte dall'accesso invece di restare sulla rotella
+    }
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => ok ? const HomeScreen() : const LoginScreen()),

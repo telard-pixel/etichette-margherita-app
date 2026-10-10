@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:etichette_margherita/api.dart';
 import 'package:etichette_margherita/screens/proposals.dart';
 import 'package:flutter/material.dart';
@@ -168,6 +170,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No, correggo io'), findsNWidgets(3));
     expect(find.text('+2 da confermare'), findsOneWidget);
+  });
+
+  testWidgets('con un errore di rete tiene le domande che ha', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(_host(LotProposalsPanel(
+      showPhoto: false,
+      refresh: const Duration(seconds: 1),
+      load: () async {
+        calls++;
+        if (calls == 1) return [_p(7)];
+        throw ApiError(0, 'Server non raggiungibile');
+      },
+    )));
+    await tester.pumpAndSettle();
+    expect(find.text('È AB123 (LoRA)'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(calls, greaterThan(1));
+    expect(find.text('È AB123 (LoRA)'), findsOneWidget);
+  });
+
+  testWidgets('una lettura vecchia non rimette una domanda già risolta', (tester) async {
+    final slow = Completer<List<Map<String, dynamic>>>();
+    var calls = 0;
+    await tester.pumpWidget(_host(LotProposalsPanel(
+      showPhoto: false,
+      refresh: const Duration(seconds: 1),
+      load: () {
+        calls++;
+        if (calls == 1) return Future.value([_p(7)]);
+        if (calls == 2) return slow.future;
+        return Future.value(<Map<String, dynamic>>[]);
+      },
+      answer: (id, choice) async => {'ok': true, 'scelta': choice, 'lotto': 'AB123'},
+    )));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1)); // parte la lettura lenta
+    await tester.tap(find.text('È AB123 (LoRA)'));
+    await tester.pumpAndSettle(); // risposta data: la domanda e' tolta
+    slow.complete([_p(7)]); // arriva la lettura vecchia
+    await tester.pumpAndSettle();
+    expect(find.text('È AB123 (LoRA)'), findsNothing);
   });
 
   testWidgets('se il server non ha ancora le domande (404) non mostra niente', (tester) async {
