@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -41,6 +42,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
   @override
   void dispose() {
     _unsaved.set(false);
+    // Se c'era un salvataggio in attesa (l'ultimo pezzo del nome), lo si fa ora.
+    final pendingWrite = _rememberTimer?.isActive ?? false;
+    _rememberTimer?.cancel();
+    if (pendingWrite) _writePending();
     _caption.removeListener(_remember);
     _caption.dispose();
     super.dispose();
@@ -49,18 +54,34 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// Foto e nome restano salvati finche' non sono inviati: se il telefono
   /// chiude l'app (Android) o Safari ricarica la pagina (iPhone) mentre la
   /// fotocamera e' aperta, al ritorno ci sono ancora (revisione 6/10/2026).
-  void _remember() {
+  ///
+  /// Le foto si salvano subito (`now`); il nome dopo una pausa nella scrittura, non a ogni
+  /// tasto: ogni salvataggio cancella e riscrive tutte le foto, e le scritture si accavallavano
+  /// (una cancellava i file mentre l'altra li scriveva). Ora vanno una alla volta.
+  void _remember({bool now = false}) {
     _unsaved.set(_photos.isNotEmpty || _sending);
-    if (_photos.isEmpty) {
-      platform.clearPendingPhotos();
+    _rememberTimer?.cancel();
+    if (now) {
+      _writePending();
     } else {
-      platform.savePendingPhotos(List.of(_photos), _caption.text, _batchKey ?? '', null);
+      _rememberTimer = Timer(const Duration(milliseconds: 700), _writePending);
     }
+  }
+
+  Timer? _rememberTimer;
+  Future<void> _saving = Future.value();
+
+  void _writePending() {
+    final photos = List.of(_photos);
+    final caption = _caption.text;
+    final batch = _batchKey ?? '';
+    _saving = _saving.then((_) =>
+        photos.isEmpty ? platform.clearPendingPhotos() : platform.savePendingPhotos(photos, caption, batch, null));
   }
 
   void _changed(VoidCallback change) {
     setState(change);
-    _remember();
+    _remember(now: true);
   }
 
   /// Al ritorno: le foto salvate prima (vedi _remember) e, su Android, quella
@@ -74,7 +95,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
         if (_caption.text.isEmpty) _caption.text = pending.caption;
         _batchKey = pending.batch.isEmpty ? null : pending.batch;
       });
-      _remember();
+      _remember(now: true);
     }
     if (platform.isWebApp) return; // solo Android chiude l'app mentre fotografa
     try {
