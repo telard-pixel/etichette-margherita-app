@@ -638,6 +638,7 @@ String? _engineNoticeId;
 DateTime? _engineNoticeAt;
 
 void showEngineNotice(ScaffoldMessengerState messenger, Map<String, dynamic> notice) {
+  if (Api.noNotices) return;
   final id = notice['id'] as String? ?? '';
   final now = DateTime.now();
   if (id == _engineNoticeId && _engineNoticeAt != null && now.difference(_engineNoticeAt!) < const Duration(minutes: 2)) return;

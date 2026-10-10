@@ -48,6 +48,11 @@ class _MoreScreenState extends State<MoreScreen> {
     }
   }
 
+  Future<void> _setNoNotices(bool value) async {
+    setState(() => Api.noNotices = value);
+    await Api.instance.setNoNotices(value);
+  }
+
   Future<void> _logout() async {
     final sure = await showDialog<bool>(
       context: context,
@@ -274,6 +279,17 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           const SizedBox(height: 12),
           ],
+          Panel(
+            padding: EdgeInsets.zero,
+            child: MenuRow(
+              icon: Symbols.notifications_off_rounded,
+              title: 'Niente avvisi',
+              subtitle: 'Nasconde i messaggi del server e quello sul motore AI occupato. Gli errori di invio restano',
+              trailing: Switch(value: Api.noNotices, onChanged: _setNoNotices),
+              onTap: () => _setNoNotices(!Api.noNotices),
+            ),
+          ),
+          const SizedBox(height: 12),
           Panel(
             padding: EdgeInsets.zero,
             child: MenuRow(

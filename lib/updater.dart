@@ -145,7 +145,7 @@ class Updater {
   /// una volta sola per avviso su questo telefono o browser.
   static Future<void> _showNotice(BuildContext context, Map<String, dynamic>? notice) async {
     final id = notice?['id'] as String?;
-    if (notice == null || id == null || id.isEmpty) return;
+    if (notice == null || id == null || id.isEmpty || Api.noNotices) return;
     if (await Api.instance.readSetting('avviso_visto') == id || !context.mounted) return;
     await Api.instance.writeSetting('avviso_visto', id);
     if (!context.mounted) return;

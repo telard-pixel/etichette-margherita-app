@@ -29,6 +29,7 @@ void main() {
     final messenger = messengerKey.currentState;
     if (messenger != null) showEngineNotice(messenger, notice);
   };
+  Api.instance.loadNoNotices();
   runApp(const EtichetteApp());
   // Nella versione web il gesto "indietro" chiude la schermata aperta (se
   // ce n'e' una) invece di ricaricare la pagina.

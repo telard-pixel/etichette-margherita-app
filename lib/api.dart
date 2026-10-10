@@ -31,6 +31,19 @@ class Api {
   /// l'avviso (9/10/2026).
   static void Function(Map<String, dynamic> notice)? onEngineNotice;
 
+  /// Modalita' "niente avvisi" (impostazione 'niente_avvisi'): niente finestra
+  /// dei messaggi del server all'apertura e niente messaggio sul motore AI
+  /// dopo l'invio. Gli errori veri ("Non inviata...") restano. Copia in
+  /// memoria, riletta all'avvio e aggiornata dall'interruttore in "Altro".
+  static bool noNotices = false;
+
+  Future<void> loadNoNotices() async => noNotices = await readSetting('niente_avvisi') == '1';
+
+  Future<void> setNoNotices(bool value) async {
+    noNotices = value;
+    await writeSetting('niente_avvisi', value ? '1' : null);
+  }
+
   final _storage = const FlutterSecureStorage();
   final http.Client _client = http.Client();
 
