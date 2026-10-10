@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../action_key.dart';
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
@@ -29,6 +30,9 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
   List<String> _suggested = [];
   final List<Ingredient> _ingredients = [];
   bool _busy = false;
+
+  /// Se la risposta si perde e si preme di nuovo, il server non crea un secondo lotto (stessa chiave).
+  final _createKey = ActionKey();
 
   static const _maxIngredients = 10;
 
@@ -141,14 +145,17 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
       return;
     }
     setState(() => _busy = true);
+    final key = _createKey.forRequest('${isoDay(_day)}|$product|${_ingredients.map((i) => i.toJson()).join(',')}');
     final body = await attempt(context, () => Api.instance.post('/lotti', {
           'data': isoDay(_day),
           'prodotto': product,
           if (_ingredients.isNotEmpty) 'ingredienti': [for (final i in _ingredients) i.toJson()],
+          'chiave': key,
         }));
     if (!mounted) return;
     setState(() => _busy = false);
     if (body == null) return;
+    _createKey.done();
     final lot = body['lotto_interno'] as Map<String, dynamic>;
     _product.clear();
     setState(_ingredients.clear);

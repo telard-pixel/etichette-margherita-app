@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../action_key.dart';
 import '../api.dart';
 import '../ui.dart';
 
@@ -64,12 +65,17 @@ class _PrintScreenState extends State<PrintScreen> {
   int _generation = 0;
   bool _sending = false;
 
+  /// Se la risposta si perde e si preme di nuovo, il server non somma altre copie (stessa chiave).
+  final _printKey = ActionKey();
+
   Future<void> _print() async {
     if (_sending) return; // doppio tocco = una sola richiesta
     setState(() => _sending = true);
-    final body = await printRequest(context, '/lotti/$_lotId/stampa', {'copie': _copies});
+    final key = _printKey.forRequest('$_lotId:$_copies');
+    final body = await printRequest(context, '/lotti/$_lotId/stampa', {'copie': _copies, 'chiave': key});
     if (mounted) setState(() => _sending = false);
     if (body == null || !mounted) return;
+    _printKey.done();
     _generation++;
     setState(() => _job = body['stampa'] as Map<String, dynamic>);
     _follow();

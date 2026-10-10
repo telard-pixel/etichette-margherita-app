@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../action_key.dart';
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
@@ -15,6 +16,9 @@ import '../ui.dart';
 /// Una sola alla volta: con la rete lenta un secondo tocco su "Stampa"
 /// mandava una seconda coda e le etichette uscivano doppie (revisione 6/10/2026).
 bool _printingSelection = false;
+
+/// Se la risposta si perde e si preme di nuovo, il server non crea una seconda coda (stessa chiave).
+final _multiPrintKey = ActionKey();
 
 Future<bool> printSelected(BuildContext context, List<Map<String, dynamic>> cards) async {
   if (_printingSelection) return false;
@@ -38,12 +42,16 @@ Future<bool> _printSelected(BuildContext context, List<Map<String, dynamic>> car
     builder: (_) => _PrintOptionsSheet(count: cards.length, old: old),
   );
   if (options == null || !context.mounted) return false;
+  final ids = [for (final s in cards) s['id'] as int];
+  final key = _multiPrintKey.forRequest('${ids.join(',')}:${options.$1}:${options.$2}');
   final body = await printRequest(context, '/stampe-multiple', {
-    'schede': [for (final s in cards) s['id'] as int],
+    'schede': ids,
     'copie': options.$1,
     'apertura': options.$2,
+    'chiave': key,
   });
   if (body == null) return false;
+  _multiPrintKey.done();
   if (!context.mounted) return true;
   await Navigator.push(
     context,
