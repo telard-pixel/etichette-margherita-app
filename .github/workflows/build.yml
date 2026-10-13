@@ -91,13 +91,14 @@ jobs:
           "$AAPT2" dump permissions "EtichetteMargherita-$VERSION.apk"
           ls -l "EtichetteMargherita-$VERSION.apk"
 
-      # Copia di prova della build (~33 MB): tenuta solo 3 giorni, altrimenti
-      # con 90 giorni di default riempie lo spazio Actions dell'account
-      # (12/10/2026). Le versioni di main restano comunque nelle Release.
+      # Copia di prova della build (~33 MB), solo per i rami: le versioni di main
+      # stanno gia' nelle Release. Lo spazio artifact (500 MB) e' unico per tutto
+      # l'account e anche con 3 giorni si e' riempito di nuovo (13/10/2026): ora 1 giorno.
       - uses: actions/upload-artifact@v4
+        if: github.ref != 'refs/heads/main'
         with:
           name: EtichetteMargherita-${{ env.VERSION }}
-          retention-days: 3
+          retention-days: 1
           path: |
             EtichetteMargherita-*.apk
             EtichetteMargherita-web-*.tgz
