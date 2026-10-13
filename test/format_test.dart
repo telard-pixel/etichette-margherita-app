@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:etichette_margherita/format.dart';
 import 'package:etichette_margherita/screens/archive.dart' show shortName;
-import 'package:etichette_margherita/screens/machines.dart' show printerAddressError;
+import 'package:etichette_margherita/screens/machines.dart' show printerAddressError, printerName, printerNameError;
 import 'package:etichette_margherita/screens/users.dart' show lastSeen;
 
 /// Date e nomi come li legge la cucina (8/10/2026): scadenze e "oggi/ieri"
@@ -99,5 +99,15 @@ void main() {
     expect(printerAddressError('192.168.20.24', ''), isNotNull);
     expect(printerAddressError('192.168.20.24', '0'), isNotNull);
     expect(printerAddressError('192.168.20.24', '70000'), isNotNull);
+  });
+
+  // 13/10/2026: la stampante nuova non dice il modello, il nome si sceglie.
+  test('nome della stampante', () {
+    expect(printerName({'nome': 'Etichettatrice cucina'}), 'Etichettatrice cucina');
+    expect(printerName({}), 'Stampante');
+    expect(printerName({'nome': '  '}), 'Stampante');
+    expect(printerNameError('Etichettatrice cucina'), isNull);
+    expect(printerNameError('   '), isNotNull);
+    expect(printerNameError('x' * 41), isNotNull);
   });
 }

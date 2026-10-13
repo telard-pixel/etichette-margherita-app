@@ -93,23 +93,26 @@ class _MachinesScreenState extends State<MachinesScreen> {
     _load();
   }
 
-  /// Nuovo IP della stampante (13/10/2026): lo prova e lo salva il servizio
-  /// di stampa su michyristo. Se non risponde chiede se salvarlo comunque.
+  /// Nuovo IP o nome della stampante (13/10/2026): li prova e li salva il
+  /// servizio di stampa su michyristo. Se non risponde chiede se salvare
+  /// comunque.
   Future<void> _changePrinter(Map<String, dynamic> printer) async {
     if (_busy) return;
-    final address = await showDialog<(String, int)>(
+    final address = await showDialog<(String, int, String)>(
       context: context,
       builder: (context) => _PrinterAddressDialog(
         host: printer['indirizzo'] as String? ?? '',
         port: printer['porta'] as int? ?? 9100,
+        name: printer['nome'] as String? ?? '',
       ),
     );
     if (address == null || !mounted) return;
-    final (host, port) = address;
+    final (host, port, name) = address;
+    final request = {'indirizzo': host, 'porta': port, 'nome': name};
     setState(() => _busy = true);
     Map<String, dynamic>? result;
     try {
-      result = await Api.instance.post('/admin/stampante', {'indirizzo': host, 'porta': port});
+      result = await Api.instance.post('/admin/stampante', request);
     } on ApiError catch (e) {
       if (!mounted) return;
       if (e.body?['non_risponde'] == true) {
@@ -131,7 +134,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
         );
         if (sure == true && mounted) {
           result = await attempt(context,
-              () => Api.instance.post('/admin/stampante', {'indirizzo': host, 'porta': port, 'forza': true}));
+              () => Api.instance.post('/admin/stampante', {...request, 'forza': true}));
         }
       } else if (e.status != 401) {
         toast(context, e.message, error: true);
@@ -139,7 +142,9 @@ class _MachinesScreenState extends State<MachinesScreen> {
     }
     if (!mounted) return;
     setState(() => _busy = false);
-    if (result != null) toast(context, 'Stampante ora su ${result['indirizzo']}:${result['porta']}');
+    if (result != null) {
+      toast(context, '${result['nome'] ?? 'Stampante'} ora su ${result['indirizzo']}:${result['porta']}');
+    }
     _load();
   }
 
@@ -240,7 +245,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const SectionLabel('Stampante'),
           const SizedBox(height: 4),
-          _row('BIXOLON cucina', printer['collegata'] != true ? null : printerOk, printerDetail,
+          _row(printerName(printer), printer['collegata'] != true ? null : printerOk, printerDetail,
               trailing: _restartButton('riavvia-stampa', 'Riavviare il servizio di stampa?',
                   'Riparte in pochi secondi. Serve se le stampe non escono ma la stampante è accesa.')),
           if (printer['collegata'] == true)
@@ -259,7 +264,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                 ),
                 TextButton(
                   onPressed: _busy ? null : () => _changePrinter(printer),
-                  child: const Text('Cambia IP', style: TextStyle(fontSize: 13)),
+                  child: const Text('Modifica', style: TextStyle(fontSize: 13)),
                 ),
               ]),
             ),
@@ -332,6 +337,13 @@ class _MachinesScreenState extends State<MachinesScreen> {
   }
 }
 
+/// Il nome della stampante come lo manda il servizio di stampa (13/10/2026);
+/// un servizio vecchio non lo manda.
+String printerName(Map<String, dynamic> printer) {
+  final name = (printer['nome'] as String? ?? '').trim();
+  return name.isEmpty ? 'Stampante' : name;
+}
+
 /// Cosa non va nell'indirizzo della stampante scritto a mano, o null se va
 /// bene: un IPv4 (192.168.20.24) o un nome di rete. Il servizio di stampa lo
 /// ricontrolla comunque.
@@ -355,10 +367,19 @@ String? printerAddressError(String host, String port) {
   return null;
 }
 
+/// Cosa non va nel nome della stampante, o null se va bene.
+String? printerNameError(String name) {
+  name = name.trim();
+  if (name.isEmpty) return 'Scrivi il nome';
+  if (name.length > 40) return 'Al massimo 40 caratteri';
+  return null;
+}
+
 class _PrinterAddressDialog extends StatefulWidget {
-  const _PrinterAddressDialog({required this.host, required this.port});
+  const _PrinterAddressDialog({required this.host, required this.port, required this.name});
   final String host;
   final int port;
+  final String name;
   @override
   State<_PrinterAddressDialog> createState() => _PrinterAddressDialogState();
 }
@@ -366,34 +387,49 @@ class _PrinterAddressDialog extends StatefulWidget {
 class _PrinterAddressDialogState extends State<_PrinterAddressDialog> {
   late final _host = TextEditingController(text: widget.host);
   late final _port = TextEditingController(text: '${widget.port}');
+  late final _name = TextEditingController(text: widget.name);
   String? _error;
+  String? _nameError;
 
   @override
   void dispose() {
     _host.dispose();
     _port.dispose();
+    _name.dispose();
     super.dispose();
   }
 
   void _save() {
     final error = printerAddressError(_host.text, _port.text);
-    if (error != null) {
-      setState(() => _error = error);
+    final nameError = printerNameError(_name.text);
+    if (error != null || nameError != null) {
+      setState(() {
+        _error = error;
+        _nameError = nameError;
+      });
       return;
     }
-    Navigator.pop(context, (_host.text.trim(), int.parse(_port.text.trim())));
+    Navigator.pop(context, (_host.text.trim(), int.parse(_port.text.trim()), _name.text.trim()));
   }
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Indirizzo della stampante'),
+        title: const Text('Stampante'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('L\'IP della BIXOLON nella rete del locale. Prima di salvarlo si prova a collegarsi.',
+          Text('Nome e IP della stampante nella rete del locale. Prima di salvare un IP nuovo si prova a collegarsi.',
               style: TextStyle(fontSize: 13, color: C.muted)),
           const SizedBox(height: 12),
           TextField(
+            controller: _name,
+            textCapitalization: TextCapitalization.sentences,
+            maxLength: 40,
+            decoration: InputDecoration(labelText: 'Nome', hintText: 'Etichettatrice cucina', errorText: _nameError),
+            onChanged: (_) => setState(() => _nameError = null),
+            onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 4),
+          TextField(
             controller: _host,
-            autofocus: true,
             keyboardType: TextInputType.url,
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9.\-]'))],
             decoration: InputDecoration(labelText: 'IP', hintText: '192.168.20.24', errorText: _error),
