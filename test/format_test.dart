@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:etichette_margherita/format.dart';
 import 'package:etichette_margherita/screens/archive.dart' show shortName;
+import 'package:etichette_margherita/screens/machines.dart' show printerAddressError;
 import 'package:etichette_margherita/screens/users.dart' show lastSeen;
 
 /// Date e nomi come li legge la cucina (8/10/2026): scadenze e "oggi/ieri"
@@ -82,5 +83,21 @@ void main() {
   test('i 14 allergeni del regolamento', () {
     expect(allergens.length, 14);
     expect(allergens.toSet().length, 14);
+  });
+
+  // 13/10/2026: l'IP della stampante si cambia dall'app.
+  test('indirizzo della stampante', () {
+    expect(printerAddressError('192.168.20.24', '9100'), isNull);
+    expect(printerAddressError(' 192.168.20.30 ', '9100'), isNull);
+    expect(printerAddressError('bixolon-cucina.local', '9100'), isNull);
+    expect(printerAddressError('', '9100'), isNotNull);
+    expect(printerAddressError('192.168.20', '9100'), isNotNull);
+    expect(printerAddressError('192.168.20.256', '9100'), isNotNull);
+    expect(printerAddressError('192.168..24', '9100'), isNotNull);
+    expect(printerAddressError('0.0.0.0', '9100'), isNotNull);
+    expect(printerAddressError('-stampante', '9100'), isNotNull);
+    expect(printerAddressError('192.168.20.24', ''), isNotNull);
+    expect(printerAddressError('192.168.20.24', '0'), isNotNull);
+    expect(printerAddressError('192.168.20.24', '70000'), isNotNull);
   });
 }

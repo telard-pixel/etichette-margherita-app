@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
@@ -89,6 +90,56 @@ class _MachinesScreenState extends State<MachinesScreen> {
     if (result != null) {
       toast(context, result['gia_in_corso'] == true ? 'Era già in corso' : 'Riavvio avviato');
     }
+    _load();
+  }
+
+  /// Nuovo IP della stampante (13/10/2026): lo prova e lo salva il servizio
+  /// di stampa su michyristo. Se non risponde chiede se salvarlo comunque.
+  Future<void> _changePrinter(Map<String, dynamic> printer) async {
+    if (_busy) return;
+    final address = await showDialog<(String, int)>(
+      context: context,
+      builder: (context) => _PrinterAddressDialog(
+        host: printer['indirizzo'] as String? ?? '',
+        port: printer['porta'] as int? ?? 9100,
+      ),
+    );
+    if (address == null || !mounted) return;
+    final (host, port) = address;
+    setState(() => _busy = true);
+    Map<String, dynamic>? result;
+    try {
+      result = await Api.instance.post('/admin/stampante', {'indirizzo': host, 'porta': port});
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      if (e.body?['non_risponde'] == true) {
+        final sure = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('La stampante non risponde'),
+            content: Text('$host:$port non risponde adesso. Salvare comunque?\n\n'
+                'Le stampe non usciranno finché la stampante non sarà raggiungibile a questo indirizzo.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+              FilledButton(
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Salva comunque'),
+              ),
+            ],
+          ),
+        );
+        if (sure == true && mounted) {
+          result = await attempt(context,
+              () => Api.instance.post('/admin/stampante', {'indirizzo': host, 'porta': port, 'forza': true}));
+        }
+      } else if (e.status != 401) {
+        toast(context, e.message, error: true);
+      }
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (result != null) toast(context, 'Stampante ora su ${result['indirizzo']}:${result['porta']}');
     _load();
   }
 
@@ -192,6 +243,26 @@ class _MachinesScreenState extends State<MachinesScreen> {
           _row('BIXOLON cucina', printer['collegata'] != true ? null : printerOk, printerDetail,
               trailing: _restartButton('riavvia-stampa', 'Riavviare il servizio di stampa?',
                   'Riparte in pochi secondi. Serve se le stampe non escono ma la stampante è accesa.')),
+          if (printer['collegata'] == true)
+            Padding(
+              padding: const EdgeInsets.only(left: 20, bottom: 4),
+              child: Row(children: [
+                Icon(Symbols.lan_rounded, size: 16, color: C.muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    printer['indirizzo'] != null
+                        ? 'Indirizzo ${printer['indirizzo']}:${printer['porta']}'
+                        : 'Indirizzo non disponibile (servizio di stampa da aggiornare?)',
+                    style: TextStyle(fontSize: 12.5, color: C.muted),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : () => _changePrinter(printer),
+                  child: const Text('Cambia IP', style: TextStyle(fontSize: 13)),
+                ),
+              ]),
+            ),
         ]),
       ),
       const SizedBox(height: 12),
@@ -259,4 +330,93 @@ class _MachinesScreenState extends State<MachinesScreen> {
           textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
     ]);
   }
+}
+
+/// Cosa non va nell'indirizzo della stampante scritto a mano, o null se va
+/// bene: un IPv4 (192.168.20.24) o un nome di rete. Il servizio di stampa lo
+/// ricontrolla comunque.
+String? printerAddressError(String host, String port) {
+  host = host.trim();
+  if (host.isEmpty) return 'Scrivi l\'indirizzo';
+  final looksLikeIp = RegExp(r'^[\d.]+$').hasMatch(host);
+  if (looksLikeIp) {
+    final parts = host.split('.');
+    if (parts.length != 4 || parts.any((p) => p.isEmpty || p.length > 3 || int.parse(p) > 255)) {
+      return 'IP non valido (es. 192.168.20.24)';
+    }
+    if (host == '0.0.0.0') return 'IP non valido (es. 192.168.20.24)';
+  } else if (host.length > 253 ||
+      !RegExp(r'^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$')
+          .hasMatch(host)) {
+    return 'Indirizzo non valido';
+  }
+  final p = int.tryParse(port.trim());
+  if (p == null || p < 1 || p > 65535) return 'Porta non valida (di solito 9100)';
+  return null;
+}
+
+class _PrinterAddressDialog extends StatefulWidget {
+  const _PrinterAddressDialog({required this.host, required this.port});
+  final String host;
+  final int port;
+  @override
+  State<_PrinterAddressDialog> createState() => _PrinterAddressDialogState();
+}
+
+class _PrinterAddressDialogState extends State<_PrinterAddressDialog> {
+  late final _host = TextEditingController(text: widget.host);
+  late final _port = TextEditingController(text: '${widget.port}');
+  String? _error;
+
+  @override
+  void dispose() {
+    _host.dispose();
+    _port.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final error = printerAddressError(_host.text, _port.text);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
+    Navigator.pop(context, (_host.text.trim(), int.parse(_port.text.trim())));
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Indirizzo della stampante'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('L\'IP della BIXOLON nella rete del locale. Prima di salvarlo si prova a collegarsi.',
+              style: TextStyle(fontSize: 13, color: C.muted)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _host,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9.\-]'))],
+            decoration: InputDecoration(labelText: 'IP', hintText: '192.168.20.24', errorText: _error),
+            onChanged: (_) => setState(() => _error = null),
+            onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _port,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            maxLength: 5,
+            decoration: const InputDecoration(labelText: 'Porta', helperText: 'Di solito 9100'),
+            onSubmitted: (_) => _save(),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: _save,
+            child: const Text('Salva'),
+          ),
+        ],
+      );
 }
