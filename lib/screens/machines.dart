@@ -344,6 +344,27 @@ String printerName(Map<String, dynamic> printer) {
   return name.isEmpty ? 'Stampante' : name;
 }
 
+/// La stampante come la vede chi apre Altro o sta per stampare, da /salute
+/// (14/10/2026): pronta o no, e una parola per dire perché. Prima l'app diceva
+/// "collegata" solo perché era configurata, anche a stampante spenta. Un server
+/// vecchio manda solo "stampante_collegata": allora non si sa se è accesa.
+({bool? ok, String text}) printerState(Map<String, dynamic> health) {
+  final p = (health['stampante'] as Map?)?.cast<String, dynamic>();
+  if (p == null) {
+    return health['stampante_collegata'] == true
+        ? (ok: null, text: 'configurata')
+        : (ok: false, text: 'non configurata');
+  }
+  if (p['collegata'] != true) return (ok: false, text: 'non configurata');
+  if (p['raggiungibile'] == true) {
+    if (p['in_linea'] == false) return (ok: false, text: 'sportello aperto?');
+    if (p['carta'] == false) return (ok: false, text: 'carta finita');
+    return (ok: true, text: p['carta_quasi_finita'] == true ? 'accesa · carta quasi finita' : 'accesa');
+  }
+  if (p['raggiungibile'] == false) return (ok: false, text: 'spenta o non raggiungibile');
+  return (ok: false, text: 'servizio di stampa non raggiungibile');
+}
+
 /// Cosa non va nell'indirizzo della stampante scritto a mano, o null se va
 /// bene: un IPv4 (192.168.20.24) o un nome di rete. Il servizio di stampa lo
 /// ricontrolla comunque.

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:etichette_margherita/format.dart';
 import 'package:etichette_margherita/screens/archive.dart' show shortName;
-import 'package:etichette_margherita/screens/machines.dart' show printerAddressError, printerName, printerNameError;
+import 'package:etichette_margherita/screens/machines.dart' show printerAddressError, printerName, printerNameError, printerState;
 import 'package:etichette_margherita/screens/users.dart' show lastSeen;
 
 /// Date e nomi come li legge la cucina (8/10/2026): scadenze e "oggi/ieri"
@@ -105,6 +105,21 @@ void main() {
   test('nome della stampante', () {
     expect(printerName({'nome': 'Etichettatrice cucina'}), 'Etichettatrice cucina');
     expect(printerName({}), 'Stampante');
+  });
+
+  test('stato della stampante da /salute: spenta non è "collegata"', () {
+    expect(printerState({'stampante_collegata': true, 'stampante': {'collegata': true, 'raggiungibile': false,
+        'errore': '[Errno 113] No route to host'}}), (ok: false, text: 'spenta o non raggiungibile'));
+    expect(printerState({'stampante': {'collegata': true, 'raggiungibile': true, 'in_linea': true, 'carta': true}}),
+        (ok: true, text: 'accesa'));
+    expect(printerState({'stampante': {'collegata': true, 'raggiungibile': true, 'in_linea': false}}),
+        (ok: false, text: 'sportello aperto?'));
+    expect(printerState({'stampante': {'collegata': true, 'raggiungibile': true, 'in_linea': true, 'carta': false}}),
+        (ok: false, text: 'carta finita'));
+    expect(printerState({'stampante': {'collegata': true, 'errore': 'servizio di stampa non raggiungibile (ConnectError)'}}),
+        (ok: false, text: 'servizio di stampa non raggiungibile'));
+    expect(printerState({'stampante_collegata': true}), (ok: null, text: 'configurata'));
+    expect(printerState({'stampante_collegata': false}), (ok: false, text: 'non configurata'));
     expect(printerName({'nome': '  '}), 'Stampante');
     expect(printerNameError('Etichettatrice cucina'), isNull);
     expect(printerNameError('   '), isNotNull);

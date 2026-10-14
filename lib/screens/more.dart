@@ -81,6 +81,13 @@ class _MoreScreenState extends State<MoreScreen> {
         ]),
       );
 
+  Widget _printerRow(Map<String, dynamic> h) {
+    final printer = (h['stampante'] as Map?)?.cast<String, dynamic>() ?? {};
+    final state = printerState(h);
+    final name = printerName(printer);
+    return _machine(name == 'Stampante' ? 'Stampante cucina' : name, state.ok, state.text);
+  }
+
   Widget _healthPanel() {
     final h = _health!;
     final status = (h['stato'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -93,7 +100,7 @@ class _MoreScreenState extends State<MoreScreen> {
         const SizedBox(height: 4),
         for (final m in (h['macchine'] as List).cast<Map<String, dynamic>>())
           _machine(m['nome'] as String, m['attiva'] as bool?, m['attiva'] == true ? 'attivo' : 'non risponde'),
-        _machine('Stampante cucina', h['stampante_collegata'] == true, h['stampante_collegata'] == true ? 'collegata' : 'non collegata'),
+        _printerRow(h),
         if (checks.isNotEmpty) _machine('Backup', checks['backup_fresh'] as bool?, checks['backup_fresh'] == true ? 'recente' : 'vecchio'),
         if (counts.isNotEmpty)
           _machine('Archivio', (counts['failed'] ?? 0) == 0, '${counts['archived'] ?? 0} schede · ${counts['failed'] ?? 0} fallite'),

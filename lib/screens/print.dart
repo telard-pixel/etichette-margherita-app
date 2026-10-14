@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../action_key.dart';
 import '../api.dart';
 import '../ui.dart';
+import 'machines.dart' show printerState;
 
 /// Anteprima dell'etichetta e stampa. Come nel bot: la stampa parte dopo
 /// qualche secondo e si puo' annullare; premere di nuovo somma le copie.
@@ -23,7 +24,7 @@ class _PrintScreenState extends State<PrintScreen> {
   int _copies = 1;
   Map<String, dynamic>? _job;
   Timer? _poll;
-  bool? _printerReady;
+  ({bool? ok, String text})? _printer;
 
   int get _lotId => widget.lot['id'] as int;
 
@@ -52,7 +53,7 @@ class _PrintScreenState extends State<PrintScreen> {
   Future<void> _checkPrinter() async {
     try {
       final body = await Api.instance.get('/salute');
-      if (mounted) setState(() => _printerReady = body['stampante_collegata'] == true);
+      if (mounted) setState(() => _printer = printerState(body));
     } on ApiError {
       // non decisivo: lo dira' la stampa
     }
@@ -215,14 +216,12 @@ class _PrintScreenState extends State<PrintScreen> {
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _printerReady == null ? C.muted : (_printerReady! ? C.green : C.red),
+                color: _printer?.ok == null ? C.muted : (_printer!.ok! ? C.green : C.red),
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              _printerReady == null
-                  ? 'Stampante: controllo…'
-                  : (_printerReady! ? 'Stampante collegata' : 'Stampante non collegata'),
+              _printer == null ? 'Stampante: controllo…' : 'Stampante: ${_printer!.text}',
               style: TextStyle(color: C.muted),
             ),
           ]),
