@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../action_key.dart';
 import '../api.dart';
+import '../format.dart';
 import '../ui.dart';
 import 'machines.dart' show printerState;
 
@@ -26,7 +27,36 @@ class _PrintScreenState extends State<PrintScreen> {
   Timer? _poll;
   ({bool? ok, String text})? _printer;
 
+  /// Il lotto come lo sa adesso il server: cambia quando si sceglie la scadenza.
+  late Map<String, dynamic> _lot = widget.lot;
+  bool _savingExpiry = false;
+
   int get _lotId => widget.lot['id'] as int;
+
+  /// I giorni fra cui si sceglie, come i bottoni del bot (17/10/2026).
+  static const _expiryDays = [1, 2, 3, 5, 7];
+
+  /// Giorni dalla produzione (o apertura) alla scadenza scelta, o null.
+  int? get _chosenDays {
+    final made = DateTime.tryParse(_lot['data_produzione'] as String? ?? '');
+    final expires = DateTime.tryParse(_lot['scadenza'] as String? ?? '');
+    return made == null || expires == null ? null : calendarDays(made, expires);
+  }
+
+  /// La scadenza nella banda dell'etichetta: si sceglie qui, l'anteprima si
+  /// ridisegna e la stampa esce con quella. null la toglie (riquadro bianco
+  /// da scrivere a penna).
+  Future<void> _setExpiry(int? days) async {
+    if (_savingExpiry) return;
+    setState(() => _savingExpiry = true);
+    final body = await attempt(context, () => Api.instance.post('/lotti/$_lotId/scadenza',
+        days == null ? {'scadenza': null} : {'giorni_scadenza': days}));
+    if (!mounted) return;
+    setState(() => _savingExpiry = false);
+    if (body == null) return;
+    setState(() => _lot = body['lotto_interno'] as Map<String, dynamic>);
+    await _loadLabel();
+  }
 
   @override
   void initState() {
@@ -187,6 +217,8 @@ class _PrintScreenState extends State<PrintScreen> {
           Text('Anteprima come esce dalla stampante',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
           const SizedBox(height: 16),
+          _expiryPanel(),
+          const SizedBox(height: 10),
           Panel(padding: EdgeInsets.zero, 
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -237,6 +269,52 @@ class _PrintScreenState extends State<PrintScreen> {
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
         ]),
       );
+
+  Widget _expiryPanel() {
+    final expires = _lot['scadenza'] as String?;
+    final opened = _lot['apertura_di'] != null;
+    if (_lot['scadenza_da_foto'] == true) {
+      return Panel(
+        child: Row(children: [
+          const Icon(Symbols.event_rounded, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Scade il ${itDate(expires)}: letta sulla foto. Si corregge dalla scheda.')),
+        ]),
+      );
+    }
+    final chosen = _chosenDays;
+    return Panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(opened ? 'Scadenza dopo l\'apertura' : 'Scadenza',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+        const SizedBox(height: 2),
+        Text(expires == null ? 'Nessuna: sull\'etichetta resta il riquadro da scrivere a penna' : 'Scade il ${itDate(expires)}',
+            style: TextStyle(fontSize: 13, color: C.muted)),
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          for (final d in _expiryDays)
+            ChoiceChip(
+              label: Text('+$d ${d == 1 ? 'giorno' : 'giorni'}'),
+              selected: chosen == d,
+              labelStyle: TextStyle(color: chosen == d ? C.onSelected : C.ink),
+              side: chosen == d ? BorderSide.none : BorderSide(color: C.border),
+              onSelected: _savingExpiry ? null : (_) => _setExpiry(d),
+            ),
+          ChoiceChip(
+            label: const Text('Nessuna'),
+            selected: expires == null,
+            labelStyle: TextStyle(color: expires == null ? C.onSelected : C.ink),
+            side: expires == null ? BorderSide.none : BorderSide(color: C.border),
+            onSelected: _savingExpiry
+                ? null
+                : (_) {
+                    if (expires != null) _setExpiry(null);
+                  },
+          ),
+        ]),
+      ]),
+    );
+  }
 
   Widget _queueCard() {
     final job = _job!;
