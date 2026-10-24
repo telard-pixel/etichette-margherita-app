@@ -6,6 +6,7 @@ import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import '../updater.dart';
 import 'about.dart';
+import 'closing.dart';
 import 'login.dart';
 import 'machines.dart';
 import 'users.dart';
@@ -286,6 +287,25 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           const SizedBox(height: 12),
           ],
+          Panel(
+            padding: EdgeInsets.zero,
+            child: Column(children: [
+              MenuRow(
+                icon: Symbols.policy_rounded,
+                title: 'Richiamo lotto',
+                subtitle: 'Dove è stato usato un lotto del fornitore',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RecallScreen())),
+              ),
+              divider,
+              MenuRow(
+                icon: Symbols.delete_sweep_rounded,
+                title: 'Registro scarti',
+                subtitle: 'Cosa è stato buttato, mese per mese',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DisposalsScreen())),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 12),
           Panel(
             padding: EdgeInsets.zero,
             child: MenuRow(

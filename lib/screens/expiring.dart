@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
+import 'closing.dart';
 import 'home.dart';
 import 'item.dart';
 
@@ -79,6 +81,14 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
           ),
           const SizedBox(width: 8),
           pill,
+          // Finito o buttato: esce subito da questo elenco.
+          IconButton(
+            tooltip: 'Finito o buttato',
+            icon: Icon(Symbols.inventory_rounded, color: C.muted),
+            onPressed: () async {
+              if (await closeItem(context, s['id'] as int, product: s['prodotto'] as String?)) _load();
+            },
+          ),
         ]),
       ),
     );

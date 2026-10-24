@@ -8,6 +8,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../api.dart';
 import '../format.dart';
 import '../ui.dart';
+import 'closing.dart';
 import 'inline_edit.dart';
 import 'home.dart';
 import 'print.dart';
@@ -449,6 +450,21 @@ class _ItemScreenState extends State<ItemScreen> {
                   icon: const Icon(Symbols.print_rounded),
                   label: const Text('Stampa etichetta'),
                 ),
+                const SizedBox(height: 12),
+                // Finito / Buttato (revisione 23/10/2026): la scheda esce
+                // dalle scadenze e dall'avviso di ogni mattina.
+                if (s['chiusura'] != null)
+                  ClosedCard(s['chiusura'] as Map<String, dynamic>, onReopen: () async {
+                    if (await reopenItem(context, widget.itemId)) _load();
+                  })
+                else
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      if (await closeItem(context, widget.itemId, product: s['prodotto'] as String?)) _load();
+                    },
+                    icon: const Icon(Symbols.inventory_rounded),
+                    label: const Text('Finito o buttato'),
+                  ),
               ]),
             ),
           ),
