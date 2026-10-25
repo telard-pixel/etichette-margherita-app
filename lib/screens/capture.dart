@@ -11,6 +11,7 @@ import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import 'home.dart';
 import 'reading.dart';
+import 'scanner.dart';
 
 /// Foto di un'etichetta: una o piu' foto dello stesso prodotto (il coperchio
 /// col lotto, il retro col produttore), come un album su Telegram.
@@ -163,6 +164,20 @@ class _CaptureScreenState extends State<CaptureScreen> {
         _changed(() => _photos.addAll(bytes));
         if (files.length > room) toast(context, 'Ho preso ${bytes.length} foto su ${files.length}: il massimo è $_maxPhotos per scheda');
       } else {
+        // Su Android lo scanner (25/10/2026): cornice e controllo di lotto e
+        // scadenza prima di inviare. Nel browser resta la fotocamera del
+        // telefono, che li' fa foto migliori dell'anteprima del browser.
+        if (!platform.isWebApp) {
+          final outcome = await Navigator.push<ScanOutcome>(
+            context,
+            MaterialPageRoute(builder: (_) => const ScannerScreen()),
+          );
+          if (!mounted || outcome == null) return;
+          if (!outcome.useSystemCamera) {
+            _changed(() => _photos.add(outcome.photo!));
+            return;
+          }
+        }
         final file = await _picker.pickImage(source: source, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
         if (file != null) {
           final bytes = await file.readAsBytes();

@@ -1,0 +1,463 @@
+import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
+
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
+import 'package:material_symbols_icons/symbols.dart';
+
+import '../label_hints.dart';
+import '../platform/text_reader.dart';
+import '../ui.dart';
+
+/// Come e' finito lo scanner: la foto scelta, oppure "usa la fotocamera del
+/// telefono" se quella dell'app non parte (permesso negato, telefono strano).
+class ScanOutcome {
+  const ScanOutcome.photo(Uint8List this.photo) : useSystemCamera = false;
+  const ScanOutcome.systemCamera()
+      : photo = null,
+        useSystemCamera = true;
+  final Uint8List? photo;
+  final bool useSystemCamera;
+}
+
+/// Scanner (25/10/2026): fotocamera dentro l'app con una cornice dove mettere
+/// l'etichetta. Mentre inquadri, il telefono legge il testo e dice se vede
+/// lotto e scadenza; dopo lo scatto controlla la foto vera e, se manca
+/// qualcosa, propone di rifarla prima di inviarla.
+///
+/// Nell'archivio tre correzioni su quattro erano campi non trovati, spesso
+/// perche' il timbro non era nella foto: qui lo si vede prima di inviare.
+class ScannerScreen extends StatefulWidget {
+  const ScannerScreen({super.key});
+  @override
+  State<ScannerScreen> createState() => _ScannerScreenState();
+}
+
+class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserver {
+  CameraController? _camera;
+  CameraDescription? _description;
+  String? _error;
+  final _reader = TextReader();
+
+  /// Cosa vede adesso l'anteprima (solo l'ultimo fotogramma letto: se sposti
+  /// il telefono il risultato vecchio non vale piu').
+  LabelHints _live = LabelHints.none;
+  bool _reading = false;
+  bool _capturing = false;
+  bool _torch = false;
+  Timer? _nextRead;
+  double _zoom = 1, _minZoom = 1, _maxZoom = 1, _zoomAtPinch = 1;
+
+  /// Dopo lo scatto: la foto pronta da inviare e cosa ci ha trovato il telefono.
+  Uint8List? _shot;
+  LabelHints? _shotHints;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _start();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _nextRead?.cancel();
+    _camera?.dispose();
+    _reader.close();
+    super.dispose();
+  }
+
+  /// La fotocamera va lasciata quando l'app passa in secondo piano (Android
+  /// la toglie comunque) e ripresa al ritorno.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final camera = _camera;
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      if (camera == null) return;
+      _nextRead?.cancel();
+      _camera = null;
+      camera.dispose();
+    } else if (state == AppLifecycleState.resumed && _camera == null && _shot == null) {
+      _start();
+    }
+  }
+
+  /// La richiesta del permesso manda l'app in "inactive" e poi "resumed":
+  /// senza questo si aprirebbe la fotocamera due volte.
+  bool _starting = false;
+
+  Future<void> _start() async {
+    if (_starting) return;
+    _starting = true;
+    try {
+      final cameras = await availableCameras();
+      final back = cameras.firstWhere((c) => c.lensDirection == CameraLensDirection.back,
+          orElse: () => cameras.first);
+      // La massima risoluzione: i lotti stampati sono minuscoli. La foto poi
+      // si riduce a 2400 px come prima (vedi _shrink).
+      final camera = CameraController(back, ResolutionPreset.max,
+          enableAudio: false, imageFormatGroup: ImageFormatGroup.nv21);
+      await camera.initialize();
+      if (!mounted) {
+        camera.dispose();
+        return;
+      }
+      _minZoom = await camera.getMinZoomLevel();
+      _maxZoom = min(await camera.getMaxZoomLevel(), 6);
+      _zoom = _minZoom;
+      setState(() {
+        _camera = camera;
+        _description = back;
+        _error = null;
+        _torch = false;
+      });
+      _scheduleRead(const Duration(milliseconds: 400));
+    } catch (e) {
+      if (mounted) setState(() => _error = e is CameraException ? (e.description ?? e.code) : '$e');
+    } finally {
+      _starting = false;
+    }
+  }
+
+  /// Legge un fotogramma ogni tanto, non tutti: ognuno pesa quanto una foto.
+  /// Lo stream si ferma appena arriva il fotogramma e riparte dopo la lettura.
+  void _scheduleRead(Duration after) {
+    _nextRead?.cancel();
+    if (!canReadText) return;
+    _nextRead = Timer(after, () {
+      final camera = _camera;
+      if (!mounted || camera == null || _capturing || _shot != null || camera.value.isStreamingImages) return;
+      camera.startImageStream(_onFrame).catchError((_) {});
+    });
+  }
+
+  Future<void> _onFrame(CameraImage frame) async {
+    final camera = _camera;
+    if (_reading || camera == null) return;
+    _reading = true;
+    try {
+      await camera.stopImageStream();
+      final hints = await _reader.readFrame(frame, _description!);
+      if (mounted && !_capturing && hints != null) setState(() => _live = hints);
+    } catch (_) {
+      // Un fotogramma non letto non e' un problema: si riprova al prossimo.
+    } finally {
+      _reading = false;
+      _scheduleRead(const Duration(milliseconds: 700));
+    }
+  }
+
+  Future<void> _shoot() async {
+    final camera = _camera;
+    if (camera == null || _capturing) return;
+    setState(() => _capturing = true);
+    _nextRead?.cancel();
+    try {
+      if (camera.value.isStreamingImages) await camera.stopImageStream();
+      final file = await camera.takePicture();
+      final hints = canReadText ? await _reader.readFile(file.path).catchError((_) => LabelHints.none) : LabelHints.none;
+      final bytes = await compute(_shrink, await file.readAsBytes());
+      if (!mounted) return;
+      setState(() {
+        _shot = bytes;
+        // Quello che si vedeva un attimo prima conta: il timbro letto
+        // nell'anteprima e' nella foto anche se la foto intera lo legge peggio.
+        _shotHints = hints.merge(_live);
+        _capturing = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _capturing = false);
+      toast(context, 'Scatto non riuscito: $e', error: true);
+      _scheduleRead(const Duration(milliseconds: 400));
+    }
+  }
+
+  void _retake() {
+    setState(() {
+      _shot = null;
+      _shotHints = null;
+      _live = LabelHints.none;
+    });
+    if (_camera == null) {
+      _start();
+    } else {
+      _scheduleRead(const Duration(milliseconds: 400));
+    }
+  }
+
+  Future<void> _toggleTorch() async {
+    final camera = _camera;
+    if (camera == null) return;
+    try {
+      await camera.setFlashMode(_torch ? FlashMode.off : FlashMode.torch);
+      setState(() => _torch = !_torch);
+    } catch (_) {
+      if (mounted) toast(context, 'Torcia non disponibile su questo telefono');
+    }
+  }
+
+  /// Tocco sull'anteprima: mette a fuoco li' (il timbro piccolo sul coperchio).
+  void _focusAt(TapUpDetails details, BoxConstraints box) {
+    final camera = _camera;
+    if (camera == null) return;
+    final point = Offset(
+      (details.localPosition.dx / box.maxWidth).clamp(0.0, 1.0),
+      (details.localPosition.dy / box.maxHeight).clamp(0.0, 1.0),
+    );
+    camera.setFocusPoint(point).catchError((_) {});
+    camera.setExposurePoint(point).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(child: _shot != null ? _review() : _viewfinder()),
+      );
+
+  Widget _viewfinder() {
+    final camera = _camera;
+    if (_error != null) return _failed();
+    if (camera == null || !camera.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+    final preview = camera.value.previewSize!;
+    return Stack(children: [
+      Positioned.fill(
+        child: LayoutBuilder(
+          builder: (context, box) => GestureDetector(
+            onTapUp: (d) => _focusAt(d, box),
+            onScaleStart: (_) => _zoomAtPinch = _zoom,
+            onScaleUpdate: (d) {
+              final zoom = (_zoomAtPinch * d.scale).clamp(_minZoom, _maxZoom);
+              if ((zoom - _zoom).abs() < 0.05) return;
+              _zoom = zoom;
+              camera.setZoomLevel(zoom).catchError((_) {});
+            },
+            child: ClipRect(
+              child: FittedBox(
+                fit: BoxFit.cover,
+                // L'anteprima arriva in orizzontale: in verticale si scambiano i lati.
+                child: SizedBox(width: preview.height, height: preview.width, child: CameraPreview(camera)),
+              ),
+            ),
+          ),
+        ),
+      ),
+      const Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _FramePainter()))),
+      Positioned(
+        top: 8,
+        left: 8,
+        right: 8,
+        child: Row(children: [
+          IconButton(
+            tooltip: 'Chiudi',
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Symbols.close_rounded, color: Colors.white),
+          ),
+          const Expanded(
+            child: Text('Metti l\'etichetta nella cornice: devono vedersi lotto e scadenza',
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+          IconButton(
+            tooltip: _torch ? 'Spegni la torcia' : 'Accendi la torcia',
+            onPressed: _toggleTorch,
+            icon: Icon(_torch ? Symbols.flashlight_off_rounded : Symbols.flashlight_on_rounded, color: Colors.white),
+          ),
+        ]),
+      ),
+      Positioned(
+        left: 16,
+        right: 16,
+        bottom: 16,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (canReadText) ...[
+            Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
+              _Found('Lotto', _live.lot),
+              _Found('Scadenza', _live.expiry),
+            ]),
+            const SizedBox(height: 6),
+            Text(
+              _live.complete
+                  ? 'Si leggono tutti e due: scatta'
+                  : 'Avvicinati al timbro, tocca per mettere a fuoco, allarga con due dita',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+          ],
+          _Shutter(ready: _live.complete, busy: _capturing, onTap: _shoot),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _failed() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Symbols.no_photography_rounded, color: Colors.white, size: 48),
+            const SizedBox(height: 12),
+            Text('La fotocamera dell\'app non parte ($_error).',
+                textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, const ScanOutcome.systemCamera()),
+              child: const Text('Usa la fotocamera del telefono'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annulla', style: TextStyle(color: Colors.white70)),
+            ),
+          ]),
+        ),
+      );
+
+  Widget _review() {
+    final hints = _shotHints ?? LabelHints.none;
+    final missing = [if (!hints.hasLot) 'il lotto', if (!hints.hasExpiry) 'la scadenza'];
+    return Column(children: [
+      Expanded(child: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(_shot!)))),
+      Container(
+        color: Colors.black,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (canReadText) ...[
+            Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
+              _Found('Lotto', hints.lot),
+              _Found('Scadenza', hints.expiry),
+            ]),
+            const SizedBox(height: 8),
+            Text(
+              missing.isEmpty
+                  ? 'Il telefono legge lotto e scadenza. La lettura vera la fa il server dopo l\'invio.'
+                  : 'Non vedo ${missing.join(' e ')}. Rifai la foto più vicino al timbro, '
+                      'oppure usala e aggiungi un\'altra foto dove si vede.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: missing.isEmpty ? Colors.white70 : const Color(0xFFF0C27D), fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), minimumSize: const Size(0, 48)),
+                onPressed: _retake,
+                icon: const Icon(Symbols.replay_rounded),
+                label: const Text('Rifai'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: C.sand, foregroundColor: C.onSand, minimumSize: const Size(0, 48)),
+                onPressed: () => Navigator.pop(context, ScanOutcome.photo(_shot!)),
+                icon: const Icon(Symbols.check_rounded),
+                label: Text(missing.isEmpty || !canReadText ? 'Usa la foto' : 'Usa lo stesso'),
+              ),
+            ),
+          ]),
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// La foto come la mandava image_picker: lato lungo al massimo 2400 px,
+/// JPEG qualita' 88, raddrizzata secondo l'EXIF. Gira in un isolate.
+Uint8List _shrink(Uint8List data) {
+  final decoded = img.decodeJpg(data);
+  if (decoded == null) return data;
+  var picture = img.bakeOrientation(decoded);
+  const longest = 2400;
+  if (max(picture.width, picture.height) > longest) {
+    picture = picture.width >= picture.height
+        ? img.copyResize(picture, width: longest, interpolation: img.Interpolation.average)
+        : img.copyResize(picture, height: longest, interpolation: img.Interpolation.average);
+  }
+  return img.encodeJpg(picture, quality: 88);
+}
+
+/// "Lotto ✓ L261190" in verde, oppure "Lotto ?" in grigio.
+class _Found extends StatelessWidget {
+  const _Found(this.label, this.value);
+  final String label;
+  final String? value;
+  @override
+  Widget build(BuildContext context) {
+    final ok = value != null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: ok ? const Color(0xFF1F6B41) : Colors.white24,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(ok ? Symbols.check_circle_rounded : Symbols.help_rounded, color: Colors.white, size: 18),
+        const SizedBox(width: 6),
+        Text(ok ? '$label  $value' : label,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+class _Shutter extends StatelessWidget {
+  const _Shutter({required this.ready, required this.busy, required this.onTap});
+  final bool ready, busy;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'Scatta',
+        child: GestureDetector(
+          onTap: busy ? null : onTap,
+          child: Container(
+            width: 78,
+            height: 78,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: ready ? const Color(0xFF5CC48A) : Colors.white, width: 5),
+            ),
+            padding: const EdgeInsets.all(5),
+            child: DecoratedBox(
+              decoration: BoxDecoration(shape: BoxShape.circle, color: ready ? const Color(0xFF5CC48A) : Colors.white),
+              child: busy ? const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(strokeWidth: 3)) : null,
+            ),
+          ),
+        ),
+      );
+}
+
+/// Scurisce tutto tranne la cornice dove va l'etichetta.
+class _FramePainter extends CustomPainter {
+  const _FramePainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width * 0.86;
+    final height = min(width * 4 / 3, size.height * 0.62);
+    final frame = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(size.width / 2, size.height * 0.46), width: width, height: height),
+      const Radius.circular(18),
+    );
+    canvas.drawPath(
+      Path.combine(PathOperation.difference, Path()..addRect(Offset.zero & size), Path()..addRRect(frame)),
+      Paint()..color = Colors.black45,
+    );
+    canvas.drawRRect(
+      frame,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_FramePainter oldDelegate) => false;
+}
