@@ -17,11 +17,14 @@ import '../ui.dart';
 /// Come e' finito lo scanner: la foto scelta, oppure "usa la fotocamera del
 /// telefono" se quella dell'app non parte (permesso negato, telefono strano).
 class ScanOutcome {
-  const ScanOutcome.photo(Uint8List this.photo) : useSystemCamera = false;
+  const ScanOutcome.photo(Uint8List this.photo, this.hints) : useSystemCamera = false;
   const ScanOutcome.systemCamera()
       : photo = null,
+        hints = LabelHints.none,
         useSystemCamera = true;
   final Uint8List? photo;
+  /// Lotto e scadenza trovati in questa foto (per le foto successive).
+  final LabelHints hints;
   final bool useSystemCamera;
 }
 
@@ -33,7 +36,11 @@ class ScanOutcome {
 /// Nell'archivio tre correzioni su quattro erano campi non trovati, spesso
 /// perche' il timbro non era nella foto: qui lo si vede prima di inviare.
 class ScannerScreen extends StatefulWidget {
-  const ScannerScreen({super.key});
+  const ScannerScreen({super.key, this.before = LabelHints.none});
+
+  /// Lotto e scadenza gia' trovati nelle altre foto dello stesso prodotto:
+  /// la seconda foto (il fornitore sul retro) non deve per forza mostrarli.
+  final LabelHints before;
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
 }
@@ -193,7 +200,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       }
       // Quello che il telefono non trova lo cerca anche il server, come
       // nella webapp: due lettori diversi sbagliano su foto diverse.
-      if (!hints.complete) {
+      if (!hints.merge(widget.before).complete) {
         try {
           hints = hints.merge(findLabelHints(await Api.instance.checkPhoto(bytes)));
         } catch (_) {}
@@ -307,20 +314,20 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (canReadText) ...[
             Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
-              _Found('Lotto', _live.lot),
-              _Found('Scadenza', _live.expiry),
+              _Found('Lotto', _live.lot, earlier: widget.before.lot),
+              _Found('Scadenza', _live.expiry, earlier: widget.before.expiry),
             ]),
             const SizedBox(height: 6),
             Text(
-              _live.complete
-                  ? 'Si leggono tutti e due: scatta'
+              _live.merge(widget.before).complete
+                  ? (_live.complete ? 'Si leggono tutti e due: scatta' : 'Lotto e scadenza ci sono già nelle altre foto: scatta')
                   : 'Avvicinati al timbro, tocca per mettere a fuoco, allarga con due dita',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 12),
           ],
-          _Shutter(ready: _live.complete, busy: _capturing, onTap: _shoot),
+          _Shutter(ready: _live.merge(widget.before).complete, busy: _capturing, onTap: _shoot),
         ]),
       ),
     ]);
@@ -350,17 +357,20 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   Widget _review() => PhotoReview(
         photo: _shot!,
         hints: _shotHints,
+        before: widget.before,
         onRetake: _retake,
-        onUse: () => Navigator.pop(context, ScanOutcome.photo(_shot!)),
+        onUse: () => Navigator.pop(context, ScanOutcome.photo(_shot!, _shotHints ?? LabelHints.none)),
       );
 }
 
 /// Webapp (25/10/2026): la foto fatta con la fotocamera del telefono,
 /// controllata dal server (il browser non sa leggere il testo). Stessa
-/// schermata dello scanner Android. Risponde true = usala, false = rifalla.
+/// schermata dello scanner Android. Risponde con cosa ci ha trovato se la
+/// foto si usa, null se si rifa'.
 class PhotoCheckScreen extends StatefulWidget {
-  const PhotoCheckScreen({super.key, required this.photo});
+  const PhotoCheckScreen({super.key, required this.photo, this.before = LabelHints.none});
   final Uint8List photo;
+  final LabelHints before;
   @override
   State<PhotoCheckScreen> createState() => _PhotoCheckScreenState();
 }
@@ -392,9 +402,10 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen> {
           child: PhotoReview(
             photo: widget.photo,
             hints: _hints,
+            before: widget.before,
             problem: _problem,
-            onRetake: () => Navigator.pop(context, false),
-            onUse: () => Navigator.pop(context, true),
+            onRetake: () => Navigator.pop(context),
+            onUse: () => Navigator.pop(context, _hints ?? LabelHints.none),
           ),
         ),
       );
@@ -403,21 +414,28 @@ class _PhotoCheckScreenState extends State<PhotoCheckScreen> {
 /// La foto appena fatta, con cosa ci si legge: "Lotto ✓ / Scadenza ✓" oppure
 /// "Non vedo il lotto", e i tasti Rifai / Usa. hints null = controllo in corso.
 class PhotoReview extends StatelessWidget {
-  const PhotoReview({super.key, required this.photo, required this.hints, this.problem, required this.onRetake, required this.onUse});
+  const PhotoReview(
+      {super.key, required this.photo, required this.hints, this.before = LabelHints.none, this.problem, required this.onRetake, required this.onUse});
   final Uint8List photo;
   final LabelHints? hints;
+  /// Quello che c'era gia' nelle altre foto dello stesso prodotto.
+  final LabelHints before;
   final String? problem;
   final VoidCallback onRetake, onUse;
 
   @override
   Widget build(BuildContext context) {
     final found = hints;
-    final missing = found == null ? const <String>[] : [if (!found.hasLot) 'il lotto', if (!found.hasExpiry) 'la scadenza'];
+    final all = found?.merge(before);
+    final missing = all == null ? const <String>[] : [if (!all.hasLot) 'il lotto', if (!all.hasExpiry) 'la scadenza'];
+    final fromEarlier = found != null && !found.complete && all!.complete;
     final String message;
     if (problem != null) {
       message = problem!;
     } else if (found == null) {
       message = 'Controllo la foto…';
+    } else if (fromEarlier) {
+      message = 'Lotto e scadenza ci sono già nelle altre foto di questo prodotto: questa va bene così.';
     } else if (missing.isEmpty) {
       message = 'Si leggono lotto e scadenza. La lettura vera la fa il server dopo l\'invio.';
     } else {
@@ -433,8 +451,8 @@ class PhotoReview extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (found != null)
             Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
-              _Found('Lotto', found.lot),
-              _Found('Scadenza', found.expiry),
+              _Found('Lotto', found.lot, earlier: before.lot),
+              _Found('Scadenza', found.expiry, earlier: before.expiry),
             ])
           else if (problem == null)
             const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
@@ -486,12 +504,14 @@ Uint8List _shrink(Uint8List data) {
 
 /// "Lotto ✓ L261190" in verde, oppure "Lotto ?" in grigio.
 class _Found extends StatelessWidget {
-  const _Found(this.label, this.value);
+  const _Found(this.label, this.value, {this.earlier});
   final String label;
   final String? value;
+  /// Il valore trovato in un'altra foto dello stesso prodotto.
+  final String? earlier;
   @override
   Widget build(BuildContext context) {
-    final ok = value != null;
+    final ok = value != null || earlier != null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -501,7 +521,7 @@ class _Found extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(ok ? Symbols.check_circle_rounded : Symbols.help_rounded, color: Colors.white, size: 18),
         const SizedBox(width: 6),
-        Text(ok ? '$label  $value' : label,
+        Text(value != null ? '$label  $value' : (earlier != null ? '$label ✓ foto prima' : label),
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       ]),
     );

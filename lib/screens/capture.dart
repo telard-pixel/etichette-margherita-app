@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
+import '../label_hints.dart';
 import '../platform/platform.dart' as platform;
 import '../ui.dart';
 import 'home.dart';
@@ -27,6 +28,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
   final _caption = TextEditingController();
   /// Le foto scelte, gia' lette in memoria (sul telefono e nel browser).
   final List<Uint8List> _photos = [];
+  /// Lotto e scadenza trovati dallo scanner in ogni foto (25/10/2026): le
+  /// foto dello stesso prodotto contano insieme, cosi' la seconda (il
+  /// fornitore sul retro) non dice "manca il lotto" se era nella prima.
+  final _hints = Expando<LabelHints>();
+  LabelHints get _foundSoFar =>
+      _photos.fold(LabelHints.none, (all, photo) => all.merge(_hints[photo] ?? LabelHints.none));
   bool _sending = false;
   String _progress = '';
   static const _maxPhotos = 5;
@@ -170,10 +177,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
         if (!platform.isWebApp) {
           final outcome = await Navigator.push<ScanOutcome>(
             context,
-            MaterialPageRoute(builder: (_) => const ScannerScreen()),
+            MaterialPageRoute(builder: (_) => ScannerScreen(before: _foundSoFar)),
           );
           if (!mounted || outcome == null) return;
           if (!outcome.useSystemCamera) {
+            _hints[outcome.photo!] = outcome.hints;
             _changed(() => _photos.add(outcome.photo!));
             return;
           }
@@ -187,15 +195,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
           // riapre da solo la fotocamera: il browser lo permette solo dopo
           // un tocco, quindi si torna qui e si riscatta.
           if (platform.isWebApp) {
-            final use = await Navigator.push<bool>(
+            final found = await Navigator.push<LabelHints>(
               context,
-              MaterialPageRoute(builder: (_) => PhotoCheckScreen(photo: bytes)),
+              MaterialPageRoute(builder: (_) => PhotoCheckScreen(photo: bytes, before: _foundSoFar)),
             );
             if (!mounted) return;
-            if (use != true) {
+            if (found == null) {
               toast(context, 'Foto scartata: scattala di nuovo');
               return;
             }
+            _hints[bytes] = found;
           }
           _changed(() => _photos.add(bytes));
         }
