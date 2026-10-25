@@ -29,7 +29,10 @@ class LabelHints {
 
 // Giorno/mese/anno con / . - o spazi (21/10/26, 06.05.2027, 21 10 26) e
 // mese/anno (10/2027). L'anno a due cifre e' quello delle etichette vere.
-final _dayMonthYear = RegExp(r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[/.\-\s]\s?(0?[1-9]|1[0-2])\s?[/.\-\s]\s?(20\d{2}|\d{2})(?!\d)');
+// L'anno puo' essere attaccato all'ora: i timbri "20/08/2030 09:11" il
+// lettore li da' come "20/08/203009:11" (funghi Sanfelici, 25/10/2026).
+final _dayMonthYear = RegExp(
+    r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[/.\-\s]\s?(0?[1-9]|1[0-2])\s?[/.\-\s]\s?(?:20\d{2}(?=\d{1,2}[:.]\d{2})|(?:20\d{2}|\d{2})(?!\d))');
 final _monthYear = RegExp(r'(?<![\d/.\-])(0?[1-9]|1[0-2])\s?[/.\-]\s?(20\d{2})(?!\d)');
 
 // Le parole che precedono la scadenza sulle etichette italiane ed europee.

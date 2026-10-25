@@ -80,4 +80,14 @@ void main() {
   test('"Lotto:" da solo senza un codice vicino non inventa niente', () {
     expect(findLabelHints(['Lotto:', 'vedi retro']).hasLot, isFalse);
   });
+
+  test('funghi: data attaccata all\'ora del timbro', () {
+    final h = findLabelHints(['LK 232 DD-R', '20/08/203009:11']);
+    expect(h.expiry, '20/08/2030');
+    expect(h.hasLot, isTrue);
+  });
+
+  test('l\'ora attaccata non rende data un numero qualsiasi', () {
+    expect(findLabelHints(['Tel. 0376/655737']).hasExpiry, isFalse);
+  });
 }
