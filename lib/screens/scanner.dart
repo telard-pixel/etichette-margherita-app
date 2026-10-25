@@ -9,6 +9,7 @@ import 'package:image/image.dart' as img;
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
+import '../error_report.dart';
 import '../label_hints.dart';
 import '../platform/text_reader.dart';
 import '../ui.dart';
@@ -47,6 +48,9 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   /// il telefono il risultato vecchio non vale piu').
   LabelHints _live = LabelHints.none;
   bool _reading = false;
+  /// Diagnostica: fotogrammi letti e righe di testo trovate. Se lo scanner si
+  /// chiude senza aver letto niente, il server lo viene a sapere (dispose).
+  int _frames = 0, _frameLines = 0, _photoLines = -1;
   bool _capturing = false;
   bool _torch = false;
   Timer? _nextRead;
@@ -65,6 +69,13 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
 
   @override
   void dispose() {
+    if (_frames == 0 || _frameLines == 0 || _photoLines == 0) {
+      ErrorReport.send(
+          StateError('scanner senza testo: fotogrammi letti $_frames, righe $_frameLines, '
+              'righe nella foto $_photoLines, anteprima ${_camera?.value.previewSize}'),
+          null,
+          where: 'scanner: riepilogo');
+    }
     WidgetsBinding.instance.removeObserver(this);
     _nextRead?.cancel();
     _camera?.dispose();
@@ -143,9 +154,14 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     try {
       await camera.stopImageStream();
       final hints = await _reader.readFrame(frame, _description!);
-      if (mounted && !_capturing && hints != null) setState(() => _live = hints);
-    } catch (_) {
-      // Un fotogramma non letto non e' un problema: si riprova al prossimo.
+      _frames++;
+      _frameLines += _reader.lastLineCount;
+      if (mounted && !_capturing) setState(() => _live = hints);
+    } catch (e, stack) {
+      // Un fotogramma non letto non ferma niente, ma si segnala (una volta
+      // per tipo di errore, vedi ErrorReport): nella 1.0.108 lo scanner non
+      // leggeva niente e nessuno poteva sapere perche'.
+      ErrorReport.send(e, stack, where: 'scanner: fotogramma');
     } finally {
       _reading = false;
       _scheduleRead(const Duration(milliseconds: 700));
@@ -160,16 +176,29 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     try {
       if (camera.value.isStreamingImages) await camera.stopImageStream();
       final file = await camera.takePicture();
-      final hints = canReadText ? await _reader.readFile(file.path).catchError((_) => LabelHints.none) : LabelHints.none;
       final bytes = await compute(_shrink, await file.readAsBytes());
       if (!mounted) return;
+      // La foto si vede subito; il controllo arriva dopo (hints null = in corso).
       setState(() {
         _shot = bytes;
-        // Quello che si vedeva un attimo prima conta: il timbro letto
-        // nell'anteprima e' nella foto anche se la foto intera lo legge peggio.
-        _shotHints = hints.merge(_live);
+        _shotHints = null;
         _capturing = false;
       });
+      var hints = _live;
+      try {
+        hints = hints.merge(await _reader.readFile(file.path));
+        _photoLines = _reader.lastLineCount;
+      } catch (e, stack) {
+        ErrorReport.send(e, stack, where: 'scanner: foto');
+      }
+      // Quello che il telefono non trova lo cerca anche il server, come
+      // nella webapp: due lettori diversi sbagliano su foto diverse.
+      if (!hints.complete) {
+        try {
+          hints = hints.merge(findLabelHints(await Api.instance.checkPhoto(bytes)));
+        } catch (_) {}
+      }
+      if (mounted && _shot == bytes) setState(() => _shotHints = hints);
     } catch (e) {
       if (!mounted) return;
       setState(() => _capturing = false);
@@ -320,7 +349,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
 
   Widget _review() => PhotoReview(
         photo: _shot!,
-        hints: _shotHints ?? LabelHints.none,
+        hints: _shotHints,
         onRetake: _retake,
         onUse: () => Navigator.pop(context, ScanOutcome.photo(_shot!)),
       );

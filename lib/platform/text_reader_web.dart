@@ -6,7 +6,8 @@ import '../label_hints.dart';
 const bool canReadText = false;
 
 class TextReader {
+  int lastLineCount = 0;
   Future<LabelHints> readFile(String path) async => LabelHints.none;
-  Future<LabelHints?> readFrame(CameraImage image, CameraDescription camera) async => null;
+  Future<LabelHints> readFrame(CameraImage image, CameraDescription camera) async => LabelHints.none;
   Future<void> close() async {}
 }
