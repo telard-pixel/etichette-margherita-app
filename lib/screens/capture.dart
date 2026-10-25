@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
+import '../error_report.dart';
 import '../label_hints.dart';
 import '../platform/platform.dart' as platform;
 import '../ui.dart';
@@ -31,7 +32,11 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// Lotto e scadenza trovati dallo scanner in ogni foto (25/10/2026): le
   /// foto dello stesso prodotto contano insieme, cosi' la seconda (il
   /// fornitore sul retro) non dice "manca il lotto" se era nella prima.
-  final _hints = Expando<LabelHints>();
+  /// Mappa per identita' (Uint8List confronta solo se stesso): l'Expando
+  /// della 1.0.114 nel browser non mostrava niente.
+  final _hints = <Uint8List, LabelHints>{};
+  /// Foto che il server sta ancora controllando (webapp): mostrano "Controllo…".
+  final _checking = <Uint8List>{};
   LabelHints get _foundSoFar =>
       _photos.fold(LabelHints.none, (all, photo) => all.merge(_hints[photo] ?? LabelHints.none));
   bool _sending = false;
@@ -204,12 +209,16 @@ class _CaptureScreenState extends State<CaptureScreen> {
   /// lotto o scadenza, compaiono in verde sulla foto. Se non trova niente non
   /// compare niente: nella prova l'avviso "manca il lotto" era sempre sbagliato.
   Future<void> _checkInBackground(Uint8List photo) async {
+    setState(() => _checking.add(photo));
     try {
       final found = findLabelHints(await Api.instance.checkPhoto(photo));
-      if (!mounted || !_photos.contains(photo)) return;
-      setState(() => _hints[photo] = found);
-    } catch (_) {
-      // Il controllo e' solo un aiuto: se non riesce, non si vede niente.
+      if (mounted) setState(() => _hints[photo] = found);
+    } catch (e, stack) {
+      // Il controllo e' solo un aiuto: se non riesce non si vede niente,
+      // ma il server lo viene a sapere.
+      ErrorReport.send(e, stack, where: 'controllo foto webapp');
+    } finally {
+      if (mounted) setState(() => _checking.remove(photo));
     }
   }
 
@@ -330,7 +339,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         borderRadius: BorderRadius.circular(12),
                         child: Image.memory(_photos[i], width: 190, height: 260, fit: BoxFit.cover, cacheWidth: 400),
                       ),
-                      if (found != null && (found.hasLot || found.hasExpiry))
+                      if (_checking.contains(_photos[i]))
+                        const Positioned(left: 6, bottom: 6, child: _FoundTag('Controllo…', pending: true))
+                      else if (found != null && (found.hasLot || found.hasExpiry))
                         Positioned(
                           left: 6,
                           right: 6,
@@ -432,15 +443,18 @@ class _BigCameraButton extends StatelessWidget {
 
 /// "Lotto L261190" in verde sulla foto: lo ha letto il controllo.
 class _FoundTag extends StatelessWidget {
-  const _FoundTag(this.text);
+  const _FoundTag(this.text, {this.pending = false});
   final String text;
+  /// Grigio, mentre il server controlla.
+  final bool pending;
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(color: const Color(0xFF1F6B41), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+            color: pending ? Colors.black54 : const Color(0xFF1F6B41), borderRadius: BorderRadius.circular(12)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Symbols.check_circle_rounded, color: Colors.white, size: 14),
+          Icon(pending ? Symbols.hourglass_top_rounded : Symbols.check_circle_rounded, color: Colors.white, size: 14),
           const SizedBox(width: 4),
           Flexible(
             child: Text(text,
