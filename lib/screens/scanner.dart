@@ -314,7 +314,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (canReadText) ...[
             Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
-              _Found('Lotto', _live.lot, earlier: widget.before.lot),
+              _Found('Lotto', _live.lotLabel, earlier: widget.before.lotLabel),
               _Found('Scadenza', _live.expiry, earlier: widget.before.expiry),
             ]),
             const SizedBox(height: 6),
@@ -451,7 +451,7 @@ class PhotoReview extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (found != null)
             Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
-              _Found('Lotto', found.lot, earlier: before.lot),
+              _Found('Lotto', found.lotLabel, earlier: before.lotLabel),
               _Found('Scadenza', found.expiry, earlier: before.expiry),
             ])
           else if (problem == null)

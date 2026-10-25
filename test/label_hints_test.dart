@@ -117,4 +117,21 @@ void main() {
     expect(findLabelHints(['2 mele, 3 nove']).hasExpiry, isFalse);
     expect(findLabelHints(['Origine: Italia 100%']).hasExpiry, isFalse);
   });
+
+  test('Spinelli: il lotto e\' la scadenza (come il server)', () {
+    final h = findLabelHints(['CASEIFICIO', 'SPINELLI', 'DA CONSUMARSI', 'ENTRO IL', '01·NOV·26']);
+    expect(h.complete, isTrue);
+    expect(h.lotFromExpiry, isTrue);
+    expect(h.lotLabel, '= scadenza');
+  });
+
+  test('l\'etichetta che dice "per il lotto vedere la scadenza"', () {
+    final h = findLabelHints(['PER IL LOTTO DI PRODUZIONE VEDERE LA DATA DI SCADENZA', '21/10/26']);
+    expect(h.lotFromExpiry, isTrue);
+  });
+
+  test('un altro produttore senza lotto resta senza lotto', () {
+    final h = findLabelHints(['Latteria Rossi', 'Da consumarsi entro il 01/11/26']);
+    expect(h.hasLot, isFalse);
+  });
 }

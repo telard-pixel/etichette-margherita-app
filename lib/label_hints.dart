@@ -9,7 +9,7 @@
 library;
 
 class LabelHints {
-  const LabelHints({this.lot, this.expiry});
+  const LabelHints({this.lot, this.expiry, this.lotFromExpiry = false});
 
   /// Il testo che sembra un lotto, come lo ha letto il telefono.
   final String? lot;
@@ -17,12 +17,24 @@ class LabelHints {
   /// Il testo che sembra una scadenza (una data o mese/anno).
   final String? expiry;
 
+  /// Il lotto e' la scadenza stessa (mozzarelle Spinelli, o l'etichetta che
+  /// dice "per il lotto vedere la data di scadenza"): stessa regola del
+  /// server, lot_from_expiry in pipeline.py.
+  final bool lotFromExpiry;
+
   bool get hasLot => lot != null;
   bool get hasExpiry => expiry != null;
   bool get complete => hasLot && hasExpiry;
 
   /// Unisce due letture: quello che una ha trovato resta, anche se l'altra no.
-  LabelHints merge(LabelHints other) => LabelHints(lot: lot ?? other.lot, expiry: expiry ?? other.expiry);
+  LabelHints merge(LabelHints other) => LabelHints(
+        lot: lot ?? other.lot,
+        expiry: expiry ?? other.expiry,
+        lotFromExpiry: lot != null ? lotFromExpiry : other.lotFromExpiry,
+      );
+
+  /// Come mostrarlo nell'indicatore "Lotto".
+  String? get lotLabel => lotFromExpiry ? '= scadenza' : lot;
 
   static const none = LabelHints();
 }
@@ -63,6 +75,15 @@ final _lotWordAlone = RegExp(r'^\s*(?:lotto|lot|l\.)(?:\s*[:.#n°]*|\b[^\d]{0,45
 
 // Una riga che e' solo un codice: "2533991502", "LK232DD-R".
 final _codeAlone = RegExp(r'^[A-Z0-9][A-Z0-9/\-. ]{2,24}[A-Z0-9]$', caseSensitive: false);
+
+/// Produttori il cui lotto e' la data di scadenza: la stessa lista del server
+/// (LOT_IS_EXPIRY_PRODUCERS in pipeline.py, chiesto dall'utente il 2/10/2026).
+const lotIsExpiryProducers = ['SPINELLI'];
+
+// "PER IL LOTTO DI PRODUZIONE VEDERE LA DATA DI SCADENZA" (come il server).
+final _lotIsExpiryPhrase = RegExp(
+    r'\bLOTTO\b.{0,40}?\b(?:VEDERE|VEDI|CORRISPONDE|COINCIDE)\b.{0,30}?\bSCADENZA\b',
+    caseSensitive: false);
 
 /// Cerca scadenza e lotto nelle righe lette da una foto.
 LabelHints findLabelHints(Iterable<String> lines) {
@@ -105,7 +126,15 @@ LabelHints findLabelHints(Iterable<String> lines) {
       }
     }
   }
-  return LabelHints(lot: lot ?? dateLot, expiry: expiry);
+  lot ??= dateLot;
+  if (lot == null && expiry != null) {
+    final text = list.join('\n');
+    final upper = text.toUpperCase();
+    if (lotIsExpiryProducers.any(upper.contains) || list.any(_lotIsExpiryPhrase.hasMatch)) {
+      return LabelHints(lot: expiry, expiry: expiry, lotFromExpiry: true);
+    }
+  }
+  return LabelHints(lot: lot, expiry: expiry);
 }
 
 String? _date(String line) {
