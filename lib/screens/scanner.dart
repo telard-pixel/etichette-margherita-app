@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../api.dart';
 import '../label_hints.dart';
 import '../platform/text_reader.dart';
 import '../ui.dart';
@@ -317,37 +318,108 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         ),
       );
 
-  Widget _review() {
-    final hints = _shotHints ?? LabelHints.none;
-    final missing = [if (!hints.hasLot) 'il lotto', if (!hints.hasExpiry) 'la scadenza'];
+  Widget _review() => PhotoReview(
+        photo: _shot!,
+        hints: _shotHints ?? LabelHints.none,
+        onRetake: _retake,
+        onUse: () => Navigator.pop(context, ScanOutcome.photo(_shot!)),
+      );
+}
+
+/// Webapp (25/10/2026): la foto fatta con la fotocamera del telefono,
+/// controllata dal server (il browser non sa leggere il testo). Stessa
+/// schermata dello scanner Android. Risponde true = usala, false = rifalla.
+class PhotoCheckScreen extends StatefulWidget {
+  const PhotoCheckScreen({super.key, required this.photo});
+  final Uint8List photo;
+  @override
+  State<PhotoCheckScreen> createState() => _PhotoCheckScreenState();
+}
+
+class _PhotoCheckScreenState extends State<PhotoCheckScreen> {
+  LabelHints? _hints;
+  String? _problem;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    try {
+      final lines = await Api.instance.checkPhoto(widget.photo);
+      if (mounted) setState(() => _hints = findLabelHints(lines));
+    } catch (e) {
+      // Il controllo e' un aiuto: se non riesce, la foto si usa lo stesso.
+      if (mounted) setState(() => _problem = 'Controllo non riuscito (${e is ApiError ? e.message : e}): puoi usarla lo stesso.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: PhotoReview(
+            photo: widget.photo,
+            hints: _hints,
+            problem: _problem,
+            onRetake: () => Navigator.pop(context, false),
+            onUse: () => Navigator.pop(context, true),
+          ),
+        ),
+      );
+}
+
+/// La foto appena fatta, con cosa ci si legge: "Lotto ✓ / Scadenza ✓" oppure
+/// "Non vedo il lotto", e i tasti Rifai / Usa. hints null = controllo in corso.
+class PhotoReview extends StatelessWidget {
+  const PhotoReview({super.key, required this.photo, required this.hints, this.problem, required this.onRetake, required this.onUse});
+  final Uint8List photo;
+  final LabelHints? hints;
+  final String? problem;
+  final VoidCallback onRetake, onUse;
+
+  @override
+  Widget build(BuildContext context) {
+    final found = hints;
+    final missing = found == null ? const <String>[] : [if (!found.hasLot) 'il lotto', if (!found.hasExpiry) 'la scadenza'];
+    final String message;
+    if (problem != null) {
+      message = problem!;
+    } else if (found == null) {
+      message = 'Controllo la foto…';
+    } else if (missing.isEmpty) {
+      message = 'Si leggono lotto e scadenza. La lettura vera la fa il server dopo l\'invio.';
+    } else {
+      message = 'Non vedo ${missing.join(' e ')}. Rifai la foto più vicino al timbro, '
+          'oppure usala e aggiungi un\'altra foto dove si vede.';
+    }
+    final warn = problem != null || missing.isNotEmpty;
     return Column(children: [
-      Expanded(child: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(_shot!)))),
+      Expanded(child: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(photo)))),
       Container(
         color: Colors.black,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (canReadText) ...[
+          if (found != null)
             Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
-              _Found('Lotto', hints.lot),
-              _Found('Scadenza', hints.expiry),
-            ]),
-            const SizedBox(height: 8),
-            Text(
-              missing.isEmpty
-                  ? 'Il telefono legge lotto e scadenza. La lettura vera la fa il server dopo l\'invio.'
-                  : 'Non vedo ${missing.join(' e ')}. Rifai la foto più vicino al timbro, '
-                      'oppure usala e aggiungi un\'altra foto dove si vede.',
+              _Found('Lotto', found.lot),
+              _Found('Scadenza', found.expiry),
+            ])
+          else if (problem == null)
+            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+          const SizedBox(height: 8),
+          Text(message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: missing.isEmpty ? Colors.white70 : const Color(0xFFF0C27D), fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-          ],
+              style: TextStyle(color: warn ? const Color(0xFFF0C27D) : Colors.white70, fontSize: 13)),
+          const SizedBox(height: 12),
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), minimumSize: const Size(0, 48)),
-                onPressed: _retake,
+                onPressed: onRetake,
                 icon: const Icon(Symbols.replay_rounded),
                 label: const Text('Rifai'),
               ),
@@ -356,9 +428,9 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
             Expanded(
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(backgroundColor: C.sand, foregroundColor: C.onSand, minimumSize: const Size(0, 48)),
-                onPressed: () => Navigator.pop(context, ScanOutcome.photo(_shot!)),
+                onPressed: onUse,
                 icon: const Icon(Symbols.check_rounded),
-                label: Text(missing.isEmpty || !canReadText ? 'Usa la foto' : 'Usa lo stesso'),
+                label: Text(found != null && missing.isNotEmpty ? 'Usa lo stesso' : 'Usa la foto'),
               ),
             ),
           ]),

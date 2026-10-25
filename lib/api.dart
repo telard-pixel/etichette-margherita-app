@@ -221,6 +221,18 @@ class Api {
         return body;
       });
 
+  /// Scanner della webapp (25/10/2026): le righe che il server legge nella
+  /// foto appena scattata. Il server non la tiene e non crea schede.
+  Future<List<String>> checkPhoto(Uint8List photo) => _guard(() async {
+        final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
+        final request = http.MultipartRequest('POST', uri('/controllo-foto'))
+          ..headers.addAll(authHeaders)
+          ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
+        final streamed = await _client.send(request).timeout(const Duration(seconds: 40));
+        final body = await _decode(await http.Response.fromStream(streamed));
+        return [for (final line in (body['righe'] as List? ?? const [])) '$line'];
+      });
+
   /// Immagini e file (etichetta PNG, esportazioni): i byte, o un errore.
   Future<List<int>> bytes(String path, [Map<String, String>? query]) => _guard(() async {
         final r = await _client.get(uri(path, query), headers: authHeaders).timeout(const Duration(minutes: 2));

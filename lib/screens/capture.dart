@@ -181,7 +181,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
         final file = await _picker.pickImage(source: source, maxWidth: 2400, maxHeight: 2400, imageQuality: 88);
         if (file != null) {
           final bytes = await file.readAsBytes();
-          if (mounted) _changed(() => _photos.add(bytes));
+          if (!mounted) return;
+          // Nella webapp la foto passa dal controllo del server, con la
+          // stessa schermata dello scanner Android (25/10/2026). "Rifai" non
+          // riapre da solo la fotocamera: il browser lo permette solo dopo
+          // un tocco, quindi si torna qui e si riscatta.
+          if (platform.isWebApp) {
+            final use = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(builder: (_) => PhotoCheckScreen(photo: bytes)),
+            );
+            if (!mounted) return;
+            if (use != true) {
+              toast(context, 'Foto scartata: scattala di nuovo');
+              return;
+            }
+          }
+          _changed(() => _photos.add(bytes));
         }
       }
     } catch (e) {
