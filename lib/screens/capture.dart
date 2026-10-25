@@ -190,27 +190,26 @@ class _CaptureScreenState extends State<CaptureScreen> {
         if (file != null) {
           final bytes = await file.readAsBytes();
           if (!mounted) return;
-          // Nella webapp la foto passa dal controllo del server, con la
-          // stessa schermata dello scanner Android (25/10/2026). "Rifai" non
-          // riapre da solo la fotocamera: il browser lo permette solo dopo
-          // un tocco, quindi si torna qui e si riscatta.
-          if (platform.isWebApp) {
-            final found = await Navigator.push<LabelHints>(
-              context,
-              MaterialPageRoute(builder: (_) => PhotoCheckScreen(photo: bytes, before: _foundSoFar)),
-            );
-            if (!mounted) return;
-            if (found == null) {
-              toast(context, 'Foto scartata: scattala di nuovo');
-              return;
-            }
-            _hints[bytes] = found;
-          }
           _changed(() => _photos.add(bytes));
+          if (platform.isWebApp) _checkInBackground(bytes);
         }
       }
     } catch (e) {
       if (mounted) toast(context, 'Fotocamera non disponibile: $e', error: true);
+    }
+  }
+
+  /// Webapp (25/10/2026, deciso dopo la prova su 142 schede): la foto entra
+  /// subito e si invia come sempre; il server la legge intanto e, se trova
+  /// lotto o scadenza, compaiono in verde sulla foto. Se non trova niente non
+  /// compare niente: nella prova l'avviso "manca il lotto" era sempre sbagliato.
+  Future<void> _checkInBackground(Uint8List photo) async {
+    try {
+      final found = findLabelHints(await Api.instance.checkPhoto(photo));
+      if (!mounted || !_photos.contains(photo)) return;
+      setState(() => _hints[photo] = found);
+    } catch (_) {
+      // Il controllo e' solo un aiuto: se non riesce, non si vede niente.
     }
   }
 
@@ -325,11 +324,22 @@ class _CaptureScreenState extends State<CaptureScreen> {
                         ),
                       );
                     }
+                    final found = _hints[_photos[i]];
                     return Stack(children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.memory(_photos[i], width: 190, height: 260, fit: BoxFit.cover, cacheWidth: 400),
                       ),
+                      if (found != null && (found.hasLot || found.hasExpiry))
+                        Positioned(
+                          left: 6,
+                          right: 6,
+                          bottom: 6,
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            if (found.hasLot) _FoundTag('Lotto ${found.lotLabel}'),
+                            if (found.hasExpiry) _FoundTag('Scadenza ${found.expiry}'),
+                          ]),
+                        ),
                       Positioned(
                         right: 6,
                         top: 6,
@@ -417,5 +427,26 @@ class _BigCameraButton extends StatelessWidget {
             ]),
           ),
         ),
+      );
+}
+
+/// "Lotto L261190" in verde sulla foto: lo ha letto il controllo.
+class _FoundTag extends StatelessWidget {
+  const _FoundTag(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: const Color(0xFF1F6B41), borderRadius: BorderRadius.circular(12)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Symbols.check_circle_rounded, color: Colors.white, size: 14),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(text,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+        ]),
       );
 }

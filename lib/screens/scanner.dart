@@ -320,8 +320,8 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
             const SizedBox(height: 6),
             Text(
               _live.merge(widget.before).complete
-                  ? (_live.complete ? 'Si leggono tutti e due: scatta' : 'Lotto e scadenza ci sono già nelle altre foto: scatta')
-                  : 'Avvicinati al timbro, tocca per mettere a fuoco, allarga con due dita',
+                  ? (_live.complete ? 'Si leggono lotto e scadenza' : 'Lotto e scadenza ci sono già nelle altre foto')
+                  : 'Tocca per mettere a fuoco, allarga con due dita',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
@@ -363,54 +363,6 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       );
 }
 
-/// Webapp (25/10/2026): la foto fatta con la fotocamera del telefono,
-/// controllata dal server (il browser non sa leggere il testo). Stessa
-/// schermata dello scanner Android. Risponde con cosa ci ha trovato se la
-/// foto si usa, null se si rifa'.
-class PhotoCheckScreen extends StatefulWidget {
-  const PhotoCheckScreen({super.key, required this.photo, this.before = LabelHints.none});
-  final Uint8List photo;
-  final LabelHints before;
-  @override
-  State<PhotoCheckScreen> createState() => _PhotoCheckScreenState();
-}
-
-class _PhotoCheckScreenState extends State<PhotoCheckScreen> {
-  LabelHints? _hints;
-  String? _problem;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    try {
-      final lines = await Api.instance.checkPhoto(widget.photo);
-      if (mounted) setState(() => _hints = findLabelHints(lines));
-    } catch (e) {
-      // Il controllo e' un aiuto: se non riesce, la foto si usa lo stesso.
-      if (mounted) setState(() => _problem = 'Controllo non riuscito (${e is ApiError ? e.message : e}): puoi usarla lo stesso.');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: Colors.black,
-        body: SafeArea(
-          child: PhotoReview(
-            photo: widget.photo,
-            hints: _hints,
-            before: widget.before,
-            problem: _problem,
-            onRetake: () => Navigator.pop(context),
-            onUse: () => Navigator.pop(context, _hints ?? LabelHints.none),
-          ),
-        ),
-      );
-}
-
 /// La foto appena fatta, con cosa ci si legge: "Lotto ✓ / Scadenza ✓" oppure
 /// "Non vedo il lotto", e i tasti Rifai / Usa. hints null = controllo in corso.
 class PhotoReview extends StatelessWidget {
@@ -439,10 +391,10 @@ class PhotoReview extends StatelessWidget {
     } else if (missing.isEmpty) {
       message = 'Si leggono lotto e scadenza. La lettura vera la fa il server dopo l\'invio.';
     } else {
-      message = 'Non vedo ${missing.join(' e ')}. Rifai la foto più vicino al timbro, '
-          'oppure usala e aggiungi un\'altra foto dove si vede.';
+      // Nessun avviso se manca qualcosa: nella prova su 142 schede era
+      // sempre sbagliato. La lettura vera la fa il server dopo l'invio.
+      message = '';
     }
-    final warn = problem != null || missing.isNotEmpty;
     return Column(children: [
       Expanded(child: InteractiveViewer(maxScale: 6, child: Center(child: Image.memory(photo)))),
       Container(
@@ -457,9 +409,8 @@ class PhotoReview extends StatelessWidget {
           else if (problem == null)
             const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
           const SizedBox(height: 8),
-          Text(message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: warn ? const Color(0xFFF0C27D) : Colors.white70, fontSize: 13)),
+          if (message.isNotEmpty)
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(
@@ -477,7 +428,7 @@ class PhotoReview extends StatelessWidget {
                 style: FilledButton.styleFrom(backgroundColor: C.sand, foregroundColor: C.onSand, minimumSize: const Size(0, 48)),
                 onPressed: onUse,
                 icon: const Icon(Symbols.check_rounded),
-                label: Text(found != null && missing.isNotEmpty ? 'Usa lo stesso' : 'Usa la foto'),
+                label: const Text('Usa la foto'),
               ),
             ),
           ]),
@@ -512,6 +463,9 @@ class _Found extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ok = value != null || earlier != null;
+    // Solo quello che si legge, in verde: niente indicatori grigi
+    // "manca" (deciso il 25/10/2026 dopo la prova sull'archivio).
+    if (!ok) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
