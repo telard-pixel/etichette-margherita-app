@@ -44,6 +44,12 @@ final _lotWithWord = RegExp(r'\b(?:lotto|lot|l\.|l(?=\s))[\s:.#n°]*([A-Z0-9][A-
 // "L261190", "LR331", "LK248": la L attaccata al codice fa parte del lotto.
 final _lotGlued = RegExp(r'\bL(?!OT)[A-Z]{0,2}\s?\d{2,}[A-Z0-9/\-]*', caseSensitive: false);
 
+// La riga che e' solo "Lotto:" / "LOT" / "L." senza codice.
+final _lotWordAlone = RegExp(r'^\s*(?:lotto|lot|l\.)\s*[:.#n°]*\s*$', caseSensitive: false);
+
+// Una riga che e' solo un codice: "2533991502", "LK232DD-R".
+final _codeAlone = RegExp(r'^[A-Z0-9][A-Z0-9/\-. ]{2,24}[A-Z0-9]$', caseSensitive: false);
+
 /// Cerca scadenza e lotto nelle righe lette da una foto.
 LabelHints findLabelHints(Iterable<String> lines) {
   final list = [for (final l in lines) l.trim()].where((l) => l.isNotEmpty).toList();
@@ -59,6 +65,21 @@ LabelHints findLabelHints(Iterable<String> lines) {
   for (final line in list) {
     lot ??= _lot(line);
     expiry ??= _date(line);
+  }
+  // "Lotto:" da solo e il codice in un'altra colonna (25/10/2026, le
+  // mazzancolle: "Lotto:" a sinistra, 2533991502 a destra): il lettore li da'
+  // come righe separate. Si guardano le due righe dopo e le due
+  // prima, saltando le date (sono scadenze o date di produzione).
+  for (var i = 0; i < list.length && lot == null; i++) {
+    if (!_lotWordAlone.hasMatch(list[i])) continue;
+    for (final j in [i + 1, i + 2, i - 1, i - 2]) {
+      if (j < 0 || j >= list.length || _date(list[j]) != null) continue;
+      final code = _codeAlone.firstMatch(list[j]);
+      if (code != null && code.group(0)!.contains(RegExp(r'\d'))) {
+        lot = code.group(0);
+        break;
+      }
+    }
   }
   return LabelHints(lot: lot, expiry: expiry);
 }

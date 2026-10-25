@@ -58,4 +58,26 @@ void main() {
     expect(m.lot, 'X1');
     expect(m.expiry, '01/2027');
   });
+
+  test('mazzancolle: "Lotto:" e il codice in due colonne', () {
+    final h = findLabelHints([
+      'Prodotto e congelato il:',
+      '05/12/2025',
+      'Da consumarsi preferibilmente entro fine:',
+      '12/2027',
+      'Lotto:',
+      '2533991502',
+    ]);
+    expect(h.lot, '2533991502');
+    expect(h.expiry, '12/2027');
+  });
+
+  test('il codice letto prima della parola, saltando la data', () {
+    expect(findLabelHints(['2533991502', 'Lotto:', '12/2027']).lot, '2533991502');
+    expect(findLabelHints(['Lotto:', '12/2027', 'LK232DD-R']).lot, 'LK232DD-R');
+  });
+
+  test('"Lotto:" da solo senza un codice vicino non inventa niente', () {
+    expect(findLabelHints(['Lotto:', 'vedi retro']).hasLot, isFalse);
+  });
 }
