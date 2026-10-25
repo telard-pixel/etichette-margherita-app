@@ -90,4 +90,31 @@ void main() {
   test('l\'ora attaccata non rende data un numero qualsiasi', () {
     expect(findLabelHints(['Tel. 0376/655737']).hasExpiry, isFalse);
   });
+
+  test('calamaro: lotto dopo altre parole, preferito alla data', () {
+    final h = findLabelHints([
+      'PRODOTTO IL: 26/01/2026',
+      'LOTTO / CONGELATO IL : 27/01/2026',
+      'DA CONSUMARSI PREFERIBILMENTE 01/2028',
+      'ENTRO FINE',
+      'Lotto rintracciabilità cliente : CR 260093',
+    ]);
+    expect(h.lot, 'CR 260093');
+    expect(h.expiry, '01/2028');
+  });
+
+  test('calamaro: parole e codice in due colonne', () {
+    expect(findLabelHints(['Lotto rintracciabilità cliente :', 'CR 260093']).lot, 'CR 260093');
+  });
+
+  test('Spinelli: mese in lettere', () {
+    expect(findLabelHints(['DA CONSUMARSI', 'ENTRO IL', '01·NOV·26']).expiry, '01·NOV·26');
+    expect(findLabelHints(['Scad. 15 GIU 2027']).expiry, '15 GIU 2027');
+    expect(findLabelHints(['BBD 01-DEC-26']).expiry, '01-DEC-26');
+  });
+
+  test('il mese in lettere non scambia parole per date', () {
+    expect(findLabelHints(['2 mele, 3 nove']).hasExpiry, isFalse);
+    expect(findLabelHints(['Origine: Italia 100%']).hasExpiry, isFalse);
+  });
 }

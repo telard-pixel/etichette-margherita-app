@@ -33,6 +33,12 @@ class LabelHints {
 // lettore li da' come "20/08/203009:11" (funghi Sanfelici, 25/10/2026).
 final _dayMonthYear = RegExp(
     r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[/.\-\s]\s?(0?[1-9]|1[0-2])\s?[/.\-\s]\s?(?:20\d{2}(?=\d{1,2}[:.]\d{2})|(?:20\d{2}|\d{2})(?!\d))');
+// Mese in lettere: "01·NOV·26", "15 GIU 2027" (formaggio Spinelli, 25/10/2026).
+final _dayNamedMonthYear = RegExp(
+    r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[\s./\-·]?\s?'
+    r'(gen|feb|mar|apr|mag|giu|lug|ago|set|ott|nov|dic|jan|may|jun|jul|aug|sep|oct|dec)[a-z]*\.?'
+    r'\s?[\s./\-·]?\s?(20\d{2}|\d{2})(?!\d)',
+    caseSensitive: false);
 final _monthYear = RegExp(r'(?<![\d/.\-])(0?[1-9]|1[0-2])\s?[/.\-]\s?(20\d{2})(?!\d)');
 
 // Le parole che precedono la scadenza sulle etichette italiane ed europee.
@@ -44,11 +50,16 @@ final _expiryWord = RegExp(
 final _lotWithWord = RegExp(r'\b(?:lotto|lot|l\.|l(?=\s))[\s:.#n°]*([A-Z0-9][A-Z0-9/\-.]{0,18}[A-Z0-9])',
     caseSensitive: false);
 
+// "Lotto rintracciabilita' cliente: CR 260093" (calamaro, 25/10/2026): altre
+// parole tra "lotto" e i due punti, poi il codice.
+final _lotWordsThenCode = RegExp(r'\blott?o?\b[^:\d]{0,45}:\s*([A-Z0-9][A-Z0-9/\-. ]{1,18}[A-Z0-9])',
+    caseSensitive: false);
+
 // "L261190", "LR331", "LK248": la L attaccata al codice fa parte del lotto.
 final _lotGlued = RegExp(r'\bL(?!OT)[A-Z]{0,2}\s?\d{2,}[A-Z0-9/\-]*', caseSensitive: false);
 
 // La riga che e' solo "Lotto:" / "LOT" / "L." senza codice.
-final _lotWordAlone = RegExp(r'^\s*(?:lotto|lot|l\.)\s*[:.#n°]*\s*$', caseSensitive: false);
+final _lotWordAlone = RegExp(r'^\s*(?:lotto|lot|l\.)(?:\s*[:.#n°]*|\b[^\d]{0,45}[:.]?)\s*$', caseSensitive: false);
 
 // Una riga che e' solo un codice: "2533991502", "LK232DD-R".
 final _codeAlone = RegExp(r'^[A-Z0-9][A-Z0-9/\-. ]{2,24}[A-Z0-9]$', caseSensitive: false);
@@ -65,8 +76,18 @@ LabelHints findLabelHints(Iterable<String> lines) {
     expiry = _date(list[i].substring(_expiryWord.firstMatch(list[i])!.start)) ??
         (i + 1 < list.length ? _date(list[i + 1]) : null);
   }
+  // Un codice che e' una data ("LOTTO / CONGELATO IL: 27/01/2026") vale
+  // solo se non c'e' un lotto vero ("CR 260093") da qualche altra parte.
+  String? dateLot;
   for (final line in list) {
-    lot ??= _lot(line);
+    final found = _lot(line);
+    if (found != null) {
+      if (_date(found) == null) {
+        lot ??= found;
+      } else {
+        dateLot ??= found;
+      }
+    }
     expiry ??= _date(line);
   }
   // "Lotto:" da solo e il codice in un'altra colonna (25/10/2026, le
@@ -84,17 +105,19 @@ LabelHints findLabelHints(Iterable<String> lines) {
       }
     }
   }
-  return LabelHints(lot: lot, expiry: expiry);
+  return LabelHints(lot: lot ?? dateLot, expiry: expiry);
 }
 
 String? _date(String line) {
-  final m = _dayMonthYear.firstMatch(line) ?? _monthYear.firstMatch(line);
+  final m = _dayMonthYear.firstMatch(line) ?? _dayNamedMonthYear.firstMatch(line) ?? _monthYear.firstMatch(line);
   return m?.group(0)?.trim();
 }
 
 String? _lot(String line) {
   final glued = _lotGlued.firstMatch(line);
   if (glued != null) return glued.group(0)!.trim();
+  final afterWords = _lotWordsThenCode.firstMatch(line);
+  if (afterWords != null && afterWords.group(1)!.contains(RegExp(r'\d'))) return afterWords.group(1)!.trim();
   for (final m in _lotWithWord.allMatches(line)) {
     final code = m.group(1)!.trim();
     // Un codice senza cifre e' quasi sempre una parola ("L. Latte").
