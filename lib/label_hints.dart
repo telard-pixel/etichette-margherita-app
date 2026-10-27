@@ -43,8 +43,11 @@ class LabelHints {
 // mese/anno (10/2027). L'anno a due cifre e' quello delle etichette vere.
 // L'anno puo' essere attaccato all'ora: i timbri "20/08/2030 09:11" il
 // lettore li da' come "20/08/203009:11" (funghi Sanfelici, 25/10/2026).
+// 27/10/2026: anche "03\10\2027" (barra rovesciata) e "20/102026" (anno di 4
+// cifre attaccato al mese; con 2 cifre no: "1/245" e' un lotto).
 final _dayMonthYear = RegExp(
-    r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[/.\-\s]\s?(0?[1-9]|1[0-2])\s?[/.\-\s]\s?(?:20\d{2}(?=\d{1,2}[:.]\d{2})|(?:20\d{2}|\d{2})(?!\d))');
+    r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[/.\-\s\\]\s?(0?[1-9]|1[0-2])'
+    r'(?:\s?[/.\-\s\\]\s?(?:20\d{2}(?=\d{1,2}[:.]\d{2})|(?:20\d{2}|\d{2})(?!\d))|20\d{2}(?!\d))');
 // Mese in lettere: "01·NOV·26", "15 GIU 2027" (formaggio Spinelli, 25/10/2026).
 final _dayNamedMonthYear = RegExp(
     r'(?<!\d)(0?[1-9]|[12]\d|3[01])\s?[\s./\-·]?\s?'
@@ -59,7 +62,7 @@ final _expiryWord = RegExp(
     caseSensitive: false);
 
 // "Lotto: X", "LOT X", "L. X", "L X": la parola e poi un codice con almeno una cifra.
-final _lotWithWord = RegExp(r'\b(?:lotto|lot|l\.|l(?=\s))[\s:.#n°]*([A-Z0-9][A-Z0-9/\-.]{0,18}[A-Z0-9])',
+final _lotWithWord = RegExp(r'\b(?:lotto|lot|l\.|l(?=[\s:]))[\s:.#n°]*([A-Z0-9][A-Z0-9/\-.]{0,18}[A-Z0-9])',
     caseSensitive: false);
 
 // "Lotto rintracciabilita' cliente: CR 260093" (calamaro, 25/10/2026): altre
@@ -138,7 +141,12 @@ LabelHints findLabelHints(Iterable<String> lines) {
 }
 
 String? _date(String line) {
-  final m = _dayMonthYear.firstMatch(line) ?? _dayNamedMonthYear.firstMatch(line) ?? _monthYear.firstMatch(line);
+  // Il lettore scambia la O dei mesi con lo zero: "25.0TT.26" (Spinelli).
+  final fixed = line
+      .replaceAll(RegExp(r'(?<=[\d.\-\s·/])0TT\b', caseSensitive: false), 'OTT')
+      .replaceAll(RegExp(r'\bN0V\b', caseSensitive: false), 'NOV')
+      .replaceAll(RegExp(r'\bAG0\b', caseSensitive: false), 'AGO');
+  final m = _dayMonthYear.firstMatch(fixed) ?? _dayNamedMonthYear.firstMatch(fixed) ?? _monthYear.firstMatch(fixed);
   return m?.group(0)?.trim();
 }
 

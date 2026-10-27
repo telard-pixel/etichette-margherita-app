@@ -134,4 +134,17 @@ void main() {
     final h = findLabelHints(['Latteria Rossi', 'Da consumarsi entro il 01/11/26']);
     expect(h.hasLot, isFalse);
   });
+
+  test('formati trovati nella prova sull\'archivio (27/10/2026)', () {
+    expect(findLabelHints(['DAL 1960', '25.0TT.26']).expiry, '25.OTT.26');
+    expect(findLabelHints(['L:26236', '20/102026']).lot, '26236');
+    expect(findLabelHints(['L:26236', '20/102026']).expiry, '20/102026');
+    expect(findLabelHints(['03\\04\\2026', 'scad. 03\\10\\2027']).expiry, '03\\10\\2027');
+  });
+
+  test('un lotto con la barra non diventa una data', () {
+    final h = findLabelHints(['L26 1/245 09:20']);
+    expect(h.hasExpiry, isFalse);
+    expect(h.hasLot, isTrue);
+  });
 }
