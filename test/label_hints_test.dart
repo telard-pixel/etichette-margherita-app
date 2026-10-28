@@ -162,4 +162,16 @@ void main() {
     expect(findLabelHints(['211026']).hasExpiry, isFalse);
     expect(findLabelHints(['Data', 'L 211026']).hasExpiry, isFalse);
   });
+
+  test('bufala La Perla: il lotto e\' la scadenza, anche da due foto (28/10/2026)', () {
+    final one = findLabelHints(['LA PERLA 2 S.R.L.', 'PP', '211026', 'Data']);
+    expect(one.lot, '211026');
+    expect(one.lotLabel, '= scadenza');
+    final brand = findLabelHints(['MOZZARELLA DI BUFALA', 'LA PERLA 2']);
+    final seal = findLabelHints(['PLAS', '211026', 'Data']);
+    expect(seal.hasLot, isFalse);
+    expect(brand.merge(seal).lot, '211026');
+    expect(seal.merge(brand).lotLabel, '= scadenza');
+    expect(LabelHints.none.merge(seal).merge(brand).complete, isTrue);
+  });
 }

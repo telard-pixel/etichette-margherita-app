@@ -9,7 +9,7 @@
 library;
 
 class LabelHints {
-  const LabelHints({this.lot, this.expiry, this.lotFromExpiry = false});
+  const LabelHints({this.lot, this.expiry, this.lotFromExpiry = false, this.lotIsExpiry = false});
 
   /// Il testo che sembra un lotto, come lo ha letto il telefono.
   final String? lot;
@@ -22,16 +22,28 @@ class LabelHints {
   /// server, lot_from_expiry in pipeline.py.
   final bool lotFromExpiry;
 
+  /// La foto dice che il lotto e' la scadenza (il nome del produttore o la
+  /// frase), anche se la data e' in un'altra foto: "LA PERLA" sulla
+  /// confezione, "211026" sul sigillo (28/10/2026).
+  final bool lotIsExpiry;
+
   bool get hasLot => lot != null;
   bool get hasExpiry => expiry != null;
   bool get complete => hasLot && hasExpiry;
 
   /// Unisce due letture: quello che una ha trovato resta, anche se l'altra no.
-  LabelHints merge(LabelHints other) => LabelHints(
-        lot: lot ?? other.lot,
-        expiry: expiry ?? other.expiry,
-        lotFromExpiry: lot != null ? lotFromExpiry : other.lotFromExpiry,
-      );
+  LabelHints merge(LabelHints other) {
+    final both = LabelHints(
+      lot: lot ?? other.lot,
+      expiry: expiry ?? other.expiry,
+      lotFromExpiry: lot != null ? lotFromExpiry : other.lotFromExpiry,
+      lotIsExpiry: lotIsExpiry || other.lotIsExpiry,
+    );
+    if (both.lot == null && both.expiry != null && both.lotIsExpiry) {
+      return LabelHints(lot: both.expiry, expiry: both.expiry, lotFromExpiry: true, lotIsExpiry: true);
+    }
+    return both;
+  }
 
   /// Come mostrarlo nell'indicatore "Lotto".
   String? get lotLabel => lotFromExpiry ? '= scadenza' : lot;
@@ -88,8 +100,9 @@ final _lotWordAlone = RegExp(r'^\s*(?:lotto|lot|l\.)(?:\s*[:.#n°]*|\b[^\d]{0,45
 final _codeAlone = RegExp(r'^[A-Z0-9][A-Z0-9/\-. ]{2,24}[A-Z0-9]$', caseSensitive: false);
 
 /// Produttori il cui lotto e' la data di scadenza: la stessa lista del server
-/// (LOT_IS_EXPIRY_PRODUCERS in pipeline.py, chiesto dall'utente il 2/10/2026).
-const lotIsExpiryProducers = ['SPINELLI'];
+/// (LOT_IS_EXPIRY_PRODUCERS in pipeline.py, chiesto dall'utente il 2/10/2026;
+/// le bufale La Perla dal 28/10/2026).
+const lotIsExpiryProducers = ['SPINELLI', 'LA PERLA'];
 
 // "PER IL LOTTO DI PRODUZIONE VEDERE LA DATA DI SCADENZA" (come il server).
 final _lotIsExpiryPhrase = RegExp(
@@ -151,14 +164,9 @@ LabelHints findLabelHints(Iterable<String> lines) {
     }
   }
   lot ??= dateLot;
-  if (lot == null && expiry != null) {
-    final text = list.join('\n');
-    final upper = text.toUpperCase();
-    if (lotIsExpiryProducers.any(upper.contains) || list.any(_lotIsExpiryPhrase.hasMatch)) {
-      return LabelHints(lot: expiry, expiry: expiry, lotFromExpiry: true);
-    }
-  }
-  return LabelHints(lot: lot, expiry: expiry);
+  final upper = list.join('\n').toUpperCase();
+  final lotIsExpiry = lotIsExpiryProducers.any(upper.contains) || list.any(_lotIsExpiryPhrase.hasMatch);
+  return LabelHints(lotIsExpiry: lotIsExpiry).merge(LabelHints(lot: lot, expiry: expiry));
 }
 
 String? _date(String line) {
