@@ -68,6 +68,11 @@ final _dayNamedMonthYear = RegExp(
     r'(gen|feb|mar|apr|mag|giu|lug|ago|set|ott|nov|dic|jan|may|jun|jul|aug|sep|oct|dec)[a-z]*\.?'
     r'\s?[\s./\-·]?\s?(20\d{2}|\d{2})(?!\d)',
     caseSensitive: false);
+// Stampa a puntini (olio Aldi, 28/10/2026): "07/07/2027" letto
+// "07207/2027", la prima barra presa per un 2 (o un 1 / 7). Vale solo se
+// l'altra barra c'e' e l'anno ha quattro cifre.
+final _dayMonthYearOneSlashLost =
+    RegExp(r'(?<!\d)(0[1-9]|[12]\d|3[01])[127](0[1-9]|1[0-2])([/.\-])(20\d{2})(?!\d)');
 final _monthYear = RegExp(r'(?<![\d/.\-])(0?[1-9]|1[0-2])\s?[/.\-]\s?(20\d{2})(?!\d)');
 
 // Le parole che precedono la scadenza sulle etichette italiane ed europee.
@@ -97,6 +102,11 @@ final _lotGlued = RegExp(r'\bL(?!OT)[A-Z]{0,2}\s?\d{2,}[A-Z0-9/\-]*', caseSensit
 
 // La riga che e' solo "Lotto:" / "LOT" / "L." senza codice.
 final _lotWordAlone = RegExp(r'^\s*(?:lotto|lot|l\.)(?:\s*[:.#n°]*|\b[^\d]{0,45}[:.]?)\s*$', caseSensitive: false);
+
+// Il lotto a puntini sotto o sopra la data, con la L letta come C o I (non
+// 1: "151321" per "L5132" sugli asparagi Orogel, scheda #605):
+// "C2602502" per "L2602502" (olio Aldi, 28/10/2026).
+final _inkjetLot = RegExp(r'^[CIL]\s?(\d{5,10})$');
 
 // Una riga che e' solo un codice: "2533991502", "LK232DD-R".
 final _codeAlone = RegExp(r'^[A-Z0-9][A-Z0-9/\-. ]{2,24}[A-Z0-9]$', caseSensitive: false);
@@ -165,6 +175,18 @@ LabelHints findLabelHints(Iterable<String> lines) {
       }
     }
   }
+  // Timbro a puntini: data su una riga, lotto sulla riga accanto.
+  for (var i = 0; i < list.length && lot == null; i++) {
+    if (_date(list[i]) == null) continue;
+    for (final j in [i + 1, i - 1]) {
+      if (j < 0 || j >= list.length) continue;
+      final m = _inkjetLot.firstMatch(list[j].toUpperCase());
+      if (m != null) {
+        lot = 'L${m.group(1)}';
+        break;
+      }
+    }
+  }
   lot ??= dateLot;
   final upper = list.join('\n').toUpperCase();
   final lotIsExpiry = lotIsExpiryProducers.any(upper.contains) || list.any(_lotIsExpiryPhrase.hasMatch);
@@ -181,7 +203,10 @@ String? _date(String line) {
       .replaceAll(RegExp(r'\bN0V\b', caseSensitive: false), 'NOV')
       .replaceAll(RegExp(r'\bAG0\b', caseSensitive: false), 'AGO');
   final m = _dayMonthYear.firstMatch(fixed) ?? _dayNamedMonthYear.firstMatch(fixed) ?? _monthYear.firstMatch(fixed);
-  return m?.group(0)?.trim();
+  if (m != null) return m.group(0)!.trim();
+  final lost = _dayMonthYearOneSlashLost.firstMatch(fixed);
+  if (lost != null) return '${lost.group(1)}${lost.group(3)}${lost.group(2)}${lost.group(3)}${lost.group(4)}';
+  return null;
 }
 
 String? _lot(String line) {

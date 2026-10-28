@@ -174,4 +174,15 @@ void main() {
     expect(seal.merge(brand).lotLabel, '= scadenza');
     expect(LabelHints.none.merge(seal).merge(brand).complete, isTrue);
   });
+
+  test('olio Aldi, stampa a puntini letta male (28/10/2026)', () {
+    final h = findLabelHints(['VALIPO SOLO IN ITALIA/VALIF ONLY IN ITALY', '07207/2027', 'C2602502', 'imum', '4061463700855']);
+    expect(h.expiry, '07/07/2027');
+    expect(h.lot, 'L2602502');
+    // Senza l'altra barra o con l'anno corto no: potrebbe essere un lotto.
+    expect(findLabelHints(['072072027']).hasExpiry, isFalse);
+    expect(findLabelHints(['07207/27']).hasExpiry, isFalse);
+    // Il codice EAN accanto alla data non e' un lotto.
+    expect(findLabelHints(['07/07/2027', '4061463700855']).hasLot, isFalse);
+  });
 }
