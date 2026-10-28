@@ -165,23 +165,29 @@ class _MoreScreenState extends State<MoreScreen> {
         // Nel browser (soprattutto iPhone) un file passato in memoria spesso
         // non si salvava, senza errore: si chiede al server un link firmato
         // e lo si apre col tocco dell'utente (revisione 6/10/2026).
+        // Dal 28/10/2026 il file si scarica prima e si passa al pannello
+        // "Condividi": il link apriva il PDF dentro la webapp dell'iPhone,
+        // senza modo di salvarlo ne' di tornare indietro. Il link resta per
+        // i browser che non sanno condividere file.
         final link = (await Api.instance.post('/admin/esporta/$id/${Uri.encodeComponent(name)}/link', {}))['url'] as String;
+        status.value = 'Scarico $name…';
+        final data = await Api.instance.download('/admin/esporta/$id/$name');
         dialog.close();
         if (!mounted) return;
         await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Esportazione pronta'),
-            content: Text('$name è pronto. Il link vale 10 minuti.'),
+            content: Text('$name è pronto. Con "Salva o invia" puoi salvarlo su File o mandarlo.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Chiudi')),
               FilledButton(
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                 onPressed: () {
-                  platform.openDownloadLink('$kServer$link');
+                  if (!platform.shareFile(name, data)) platform.openDownloadLink('$kServer$link');
                   Navigator.pop(context);
                 },
-                child: const Text('Scarica'),
+                child: const Text('Salva o invia'),
               ),
             ],
           ),

@@ -97,6 +97,26 @@ Future<bool> openDownloadLink(String url) async {
   return true;
 }
 
+/// Il pannello "Condividi" del telefono con il file (28/10/2026): da li' si
+/// salva su File, si manda con WhatsApp o Mail, o si chiude e si resta
+/// nell'app. Aprire il PDF con un link, nella webapp messa nella schermata
+/// Home dell'iPhone, lo mostrava a tutto schermo senza nessun tasto per
+/// tornare indietro. False dove il browser non sa condividere file (il
+/// computer): li' si usa il link. Va chiamata direttamente dal tocco.
+bool shareFile(String name, List<int> bytes) {
+  final type = name.endsWith('.pdf')
+      ? 'application/pdf'
+      : name.endsWith('.xlsx')
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'text/csv';
+  final file = web.File([Uint8List.fromList(bytes).toJS].toJS, name, web.FilePropertyBag(type: type));
+  final data = web.ShareData(files: [file].toJS);
+  final navigator = web.window.navigator;
+  if (!navigator.has('canShare') || !navigator.canShare(data)) return false;
+  navigator.share(data).toDart.ignore(); // chiuso senza scegliere: va bene cosi'
+  return true;
+}
+
 // Foto scattate e non ancora inviate, in IndexedDB: Safari sull'iPhone puo'
 // ricaricare la pagina mentre la fotocamera e' aperta, e prima le foto (in
 // memoria) andavano perse (revisione 6/10/2026).

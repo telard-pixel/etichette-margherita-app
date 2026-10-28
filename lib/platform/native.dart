@@ -139,6 +139,9 @@ void reloadPage() {}
 /// Su Android i file si scaricano e si aprono con deliverFile.
 Future<bool> openDownloadLink(String url) async => false;
 
+/// Su Android i file passano da deliverFile.
+bool shareFile(String name, List<int> bytes) => false;
+
 /// Foto scattate e non ancora inviate (con didascalia e chiave dell'invio):
 /// se Android chiude l'app mentre la fotocamera e' aperta, al ritorno ci
 /// sono ancora (revisione 6/10/2026). In una cartella dell'app, non nella
