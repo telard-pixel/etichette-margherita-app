@@ -147,4 +147,19 @@ void main() {
     expect(h.hasExpiry, isFalse);
     expect(h.hasLot, isTrue);
   });
+
+  test('data compatta della bufala La Perla (28/10/2026)', () {
+    expect(findLabelHints(['PLAS', 'RACO', 'PP', '211026', 'Data']).expiry, '211026');
+    expect(findLabelHints(['Da consumarsi entro il 21102026']).expiry, '21102026');
+    expect(findLabelHints(['IKGS', '211026', 'Data', 'PP', 'lotto']).expiry, '211026');
+  });
+
+  test('sei cifre vicino a "lotto" restano un lotto', () {
+    final h = findLabelHints(['LOTTO', '211026', 'scad. 30/11/2026']);
+    expect(h.expiry, '30/11/2026');
+    expect(h.lot, '211026');
+    expect(findLabelHints(['Lotto: 211026']).hasExpiry, isFalse);
+    expect(findLabelHints(['211026']).hasExpiry, isFalse);
+    expect(findLabelHints(['Data', 'L 211026']).hasExpiry, isFalse);
+  });
 }

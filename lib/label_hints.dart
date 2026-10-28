@@ -61,6 +61,14 @@ final _expiryWord = RegExp(
     r'\b(scad\w*|entro|consumarsi|preferibilmente|tmc|bbd|best\s*before|exp\w*|use\s*by|mhd|dlc|ddm)\b',
     caseSensitive: false);
 
+// Data compatta senza separatori, "211026" o "21102026" (bufala La Perla,
+// 28/10/2026). Tante etichette hanno lotti di sei cifre, quindi vale solo
+// vicino a una parola di scadenza o a "Data", mai vicino a "lotto".
+final _compactDate = RegExp(r'(?<![\dA-Z])(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(?:20)?(2\d|3\d)(?![\dA-Z])',
+    caseSensitive: false);
+final _compactDateWord = RegExp(r'\bdata\b', caseSensitive: false);
+final _anyLotWord = RegExp(r'\b(?:lott?o|lot|batch|l\.)', caseSensitive: false);
+
 // "Lotto: X", "LOT X", "L. X", "L X": la parola e poi un codice con almeno una cifra.
 final _lotWithWord = RegExp(r'\b(?:lotto|lot|l\.|l(?=[\s:]))[\s:.#n°]*([A-Z0-9][A-Z0-9/\-.]{0,18}[A-Z0-9])',
     caseSensitive: false);
@@ -100,6 +108,19 @@ LabelHints findLabelHints(Iterable<String> lines) {
     expiry = _date(list[i].substring(_expiryWord.firstMatch(list[i])!.start)) ??
         (i + 1 < list.length ? _date(list[i + 1]) : null);
   }
+  // "211026" da solo: e' una data se nella stessa riga prima, o nella riga
+  // sopra o sotto, c'e' "scadenza / entro / Data" e non c'e' "lotto".
+  for (var i = 0; i < list.length && expiry == null; i++) {
+    final m = _compactDate.firstMatch(list[i]);
+    if (m == null) continue;
+    final before = list[i].substring(0, m.start);
+    if (_anyLotWord.hasMatch(before) || (_lot(list[i])?.contains(m.group(0)!) ?? false)) continue;
+    bool marks(String s) => _expiryWord.hasMatch(s) || _compactDateWord.hasMatch(s);
+    final near = [if (i > 0) list[i - 1], if (i + 1 < list.length) list[i + 1]];
+    if (marks(before) || near.any((n) => marks(n) && !_anyLotWord.hasMatch(n))) {
+      expiry = m.group(0);
+    }
+  }
   // Un codice che e' una data ("LOTTO / CONGELATO IL: 27/01/2026") vale
   // solo se non c'e' un lotto vero ("CR 260093") da qualche altra parte.
   String? dateLot;
@@ -121,7 +142,7 @@ LabelHints findLabelHints(Iterable<String> lines) {
   for (var i = 0; i < list.length && lot == null; i++) {
     if (!_lotWordAlone.hasMatch(list[i])) continue;
     for (final j in [i + 1, i + 2, i - 1, i - 2]) {
-      if (j < 0 || j >= list.length || _date(list[j]) != null) continue;
+      if (j < 0 || j >= list.length || _date(list[j]) != null || list[j] == expiry) continue;
       final code = _codeAlone.firstMatch(list[j]);
       if (code != null && code.group(0)!.contains(RegExp(r'\d'))) {
         lot = code.group(0);
