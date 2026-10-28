@@ -211,7 +211,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
   Future<void> _checkInBackground(Uint8List photo) async {
     setState(() => _checking.add(photo));
     try {
-      final found = findLabelHints(await Api.instance.checkPhoto(photo));
+      final found = await Api.instance.checkPhoto(photo);
       if (mounted) setState(() => _hints[photo] = found);
     } catch (e, stack) {
       // Il controllo e' solo un aiuto: se non riesce non si vede niente,

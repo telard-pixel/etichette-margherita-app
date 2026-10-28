@@ -202,7 +202,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       // nella webapp: due lettori diversi sbagliano su foto diverse.
       if (!hints.merge(widget.before).complete) {
         try {
-          hints = hints.merge(findLabelHints(await Api.instance.checkPhoto(bytes)));
+          hints = hints.merge(await Api.instance.checkPhoto(bytes));
         } catch (_) {}
       }
       if (mounted && _shot == bytes) setState(() => _shotHints = hints);

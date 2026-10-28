@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import 'label_hints.dart';
 import 'platform/platform.dart' as platform;
 
 const String kServer = 'https://etichette-margherita.duckdns.org';
@@ -221,16 +222,22 @@ class Api {
         return body;
       });
 
-  /// Scanner della webapp (25/10/2026): le righe che il server legge nella
-  /// foto appena scattata. Il server non la tiene e non crea schede.
-  Future<List<String>> checkPhoto(Uint8List photo) => _guard(() async {
+  /// Scanner della webapp (25/10/2026): lotto e scadenza nella foto appena
+  /// scattata, cercati nelle righe che legge il server. Il server non la
+  /// tiene e non crea schede. Dal 28/10/2026 legge anche i codici a barre
+  /// GS1: quelli sono esatti e vincono sul testo.
+  Future<LabelHints> checkPhoto(Uint8List photo) => _guard(() async {
         final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
         final request = http.MultipartRequest('POST', uri('/controllo-foto'))
           ..headers.addAll(authHeaders)
           ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
         final streamed = await _client.send(request).timeout(const Duration(seconds: 40));
         final body = await _decode(await http.Response.fromStream(streamed));
-        return [for (final line in (body['righe'] as List? ?? const [])) '$line'];
+        var coded = LabelHints.none;
+        for (final code in (body['codici'] as List? ?? const [])) {
+          if (code is Map) coded = coded.merge(LabelHints(lot: code['lotto'] as String?, expiry: code['scadenza'] as String?));
+        }
+        return coded.merge(findLabelHints([for (final line in (body['righe'] as List? ?? const [])) '$line']));
       });
 
   /// Immagini e file (etichetta PNG, esportazioni): i byte, o un errore.

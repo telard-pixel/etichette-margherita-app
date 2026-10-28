@@ -2,23 +2,27 @@ import 'dart:typed_data';
 import 'dart:ui' show Size;
 
 import 'package:camera/camera.dart';
+import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import '../gs1.dart';
 import '../label_hints.dart';
 
 const bool canReadText = true;
 
 /// ML Kit sul telefono: legge il testo di un fotogramma dell'anteprima o
-/// della foto scattata e ci cerca lotto e scadenza.
+/// della foto scattata e ci cerca lotto e scadenza. Legge anche i codici a
+/// barre GS1 (28/10/2026): quando ci sono, lotto e scadenza sono esatti.
 class TextReader {
   final _recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+  // Solo i formati che portano lotto e scadenza: GS1-128 e DataMatrix.
+  final _barcodes = BarcodeScanner(formats: [BarcodeFormat.code128, BarcodeFormat.dataMatrix]);
 
   /// Quante righe ha letto l'ultima volta: 0 righe con una foto piena di
   /// scritte vuol dire che il lettore non funziona, non che manca il lotto.
   int lastLineCount = 0;
 
-  Future<LabelHints> readFile(String path) async =>
-      _hints(await _recognizer.processImage(InputImage.fromFilePath(path)));
+  Future<LabelHints> readFile(String path) => _read(InputImage.fromFilePath(path));
 
   /// Un fotogramma dell'anteprima. Alcuni telefoni lo danno in NV21 (un
   /// piano), altri in YUV_420_888 (tre piani) anche se si chiede NV21: il
@@ -47,7 +51,21 @@ class TextReader {
         bytesPerRow: bytesPerRow,
       ),
     );
-    return _hints(await _recognizer.processImage(input));
+    return _read(input);
+  }
+
+  Future<LabelHints> _read(InputImage input) async {
+    final text = await _recognizer.processImage(input);
+    var coded = LabelHints.none;
+    try {
+      for (final code in await _barcodes.processImage(input)) {
+        final raw = code.rawValue;
+        if (raw != null) coded = coded.merge(gs1Hints(raw));
+      }
+    } catch (_) {
+      // Il codice a barre e' un di piu': se il lettore si rompe resta il testo.
+    }
+    return coded.merge(_hints(text));
   }
 
   LabelHints _hints(RecognizedText text) {
@@ -59,7 +77,10 @@ class TextReader {
     return findLabelHints(lines);
   }
 
-  Future<void> close() => _recognizer.close();
+  Future<void> close() async {
+    await _recognizer.close();
+    await _barcodes.close();
+  }
 }
 
 /// YUV_420_888 (Y, U, V separati, con righe e pixel che possono avere

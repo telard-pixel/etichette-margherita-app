@@ -8,6 +8,8 @@
 /// affatto: spesso perche' il timbro non era nella foto.
 library;
 
+import 'gs1.dart';
+
 class LabelHints {
   const LabelHints({this.lot, this.expiry, this.lotFromExpiry = false, this.lotIsExpiry = false});
 
@@ -166,7 +168,10 @@ LabelHints findLabelHints(Iterable<String> lines) {
   lot ??= dateLot;
   final upper = list.join('\n').toUpperCase();
   final lotIsExpiry = lotIsExpiryProducers.any(upper.contains) || list.any(_lotIsExpiryPhrase.hasMatch);
-  return LabelHints(lotIsExpiry: lotIsExpiry).merge(LabelHints(lot: lot, expiry: expiry));
+  // La riga GS1 stampata sotto le barre vince sul resto del testo: li'
+  // lotto e scadenza hanno il loro numero davanti (28/10/2026).
+  final coded = list.where(looksLikeGs1Line).map(gs1Hints).fold(LabelHints.none, (a, b) => a.merge(b));
+  return coded.merge(LabelHints(lotIsExpiry: lotIsExpiry).merge(LabelHints(lot: lot, expiry: expiry)));
 }
 
 String? _date(String line) {
