@@ -169,7 +169,6 @@ class _MoreScreenState extends State<MoreScreen> {
         // "Condividi": il link apriva il PDF dentro la webapp dell'iPhone,
         // senza modo di salvarlo ne' di tornare indietro. Il link resta per
         // i browser che non sanno condividere file.
-        final link = (await Api.instance.post('/admin/esporta/$id/${Uri.encodeComponent(name)}/link', {}))['url'] as String;
         status.value = 'Scarico $name…';
         final data = await Api.instance.download('/admin/esporta/$id/$name');
         dialog.close();
@@ -183,9 +182,17 @@ class _MoreScreenState extends State<MoreScreen> {
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Chiudi')),
               FilledButton(
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
-                onPressed: () {
-                  if (!platform.shareFile(name, data)) platform.openDownloadLink('$kServer$link');
-                  Navigator.pop(context);
+                onPressed: () async {
+                  // shareFile va chiamata subito, dentro il tocco (il browser lo pretende).
+                  if (platform.shareFile(name, data)) {
+                    Navigator.pop(context);
+                    return;
+                  }
+                  // Solo dove il browser non sa condividere file serve il link firmato:
+                  // cosi' non lo si chiede piu' al server a ogni export dal telefono.
+                  final link = (await Api.instance.post('/admin/esporta/$id/${Uri.encodeComponent(name)}/link', {}))['url'] as String;
+                  await platform.openDownloadLink('$kServer$link');
+                  if (context.mounted) Navigator.pop(context);
                 },
                 child: const Text('Salva o invia'),
               ),
