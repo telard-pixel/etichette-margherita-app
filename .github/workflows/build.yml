@@ -50,6 +50,9 @@ jobs:
         run: |
           # --no-pub: le librerie le prende solo il passo dopo, dal lock.
           flutter create --no-pub --org it.margherita --project-name etichette_margherita --platforms android,web .
+          # flutter create riscrive pubspec.lock (31/10/2026: per questo le librerie non erano mai
+          # davvero bloccate): si rimette quello del repository.
+          git checkout -- pubspec.lock
           python3 tool/web_tweak.py
           # Versione minima di Android scritta qui, non lasciata a flutter
           # create: un aggiornamento di Flutter la cambiava senza avvisare.
