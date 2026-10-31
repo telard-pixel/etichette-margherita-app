@@ -6,7 +6,7 @@ di toccare il codice. Ogni numero ha un perché. Scritto il 30/10/2026.
 
 ## Il minimo (non negoziabile)
 
-- **Test verdi**: `flutter test` — oggi **63 test** in 6 file (`label_hints_test` da solo ne ha 27).
+- **Test verdi**: `flutter test` — oggi **76 test** in 6 file (`label_hints_test` da solo ne ha 34); la CI si ferma se scendono sotto 76.
   Un test che fallisce si aggiusta o si capisce; **non si cancella e non si mette `skip`**.
 - **Analisi pulita**: `flutter analyze --no-fatal-infos` senza errori.
 - **Librerie bloccate**: `pubspec.lock` è versionato apposta (10/10/2026) — le librerie sono quelle
