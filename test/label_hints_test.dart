@@ -185,4 +185,58 @@ void main() {
     // Il codice EAN accanto alla data non e' un lotto.
     expect(findLabelHints(['07/07/2027', '4061463700855']).hasLot, isFalse);
   });
+
+  // Revisione 31/10/2026: ogni regola ha il caso che deve pescare e quello che no.
+  test('"LUG 2026" e le quantita\' non sono il lotto', () {
+    expect(findLabelHints(['TMC 15 LUG 2026']).hasLot, isFalse);
+    expect(findLabelHints(['TMC 15 LUG 2026']).expiry, '15 LUG 2026');
+    expect(findLabelHints(['le 12 fette']).hasLot, isFalse);
+    expect(findLabelHints(['L 250 ml']).hasLot, isFalse);
+    expect(findLabelHints(['LR 331']).lot, 'LR 331');
+    expect(findLabelHints(['Lotto: L261190']).lot, 'L261190');
+  });
+
+  test('la data di produzione non e\' la scadenza', () {
+    expect(findLabelHints(['Data confezionamento 151026']).hasExpiry, isFalse);
+    expect(findLabelHints(['Data di produzione:', '211026']).hasExpiry, isFalse);
+    expect(findLabelHints(['Una volta aperto consumare entro 3 giorni', 'Confezionato il 20/10/2026', '15/11/2026']).expiry,
+        '15/11/2026');
+    expect(findLabelHints(['Prodotto il 15/10/2026', '15/04/2027']).expiry, '15/04/2027');
+    // Se c'e' solo quella, resta: il cartellino del pane.
+    expect(findLabelHints(['Data conf. lotto 21 10 26']).expiry, '21 10 26');
+    expect(findLabelHints(['PLAS', '211026', 'Data']).expiry, '211026');
+  });
+
+  test('telefoni e prezzi non sono date', () {
+    expect(findLabelHints(['Tel. 030 21 10 26']).hasExpiry, isFalse);
+    expect(findLabelHints(['12.10 25.40']).hasExpiry, isFalse);
+    expect(findLabelHints(['Scad. 21 10 26']).expiry, '21 10 26');
+    expect(findLabelHints(['06.05.2027']).expiry, '06.05.2027');
+  });
+
+  test('dopo "Lotto:" l\'EAN e la quantita\' non sono il lotto', () {
+    expect(findLabelHints(['Lotto:', 'vedi retro', '8001847003563']).hasLot, isFalse);
+    expect(findLabelHints(['Lotto:', '250 g']).hasLot, isFalse);
+    expect(findLabelHints(['Lotto:', '2533991502']).lot, '2533991502');
+  });
+
+  test('il mese in lettere solo come mese', () {
+    expect(findLabelHints(['N. 2 MARGHERITA 30 cm']).hasExpiry, isFalse);
+    expect(findLabelHints(['Scad. 15 GIUGNO 2027']).expiry, '15 GIUGNO 2027');
+    expect(findLabelHints(['01·NOV·26']).expiry, '01·NOV·26');
+  });
+
+  test('le date che non esistono non sono scadenze', () {
+    expect(findLabelHints(['Scad. 31/02/26']).hasExpiry, isFalse);
+    expect(findLabelHints(['Scad. 31/04/2026']).hasExpiry, isFalse);
+    expect(findLabelHints(['Scad. 29/02/2028']).expiry, '29/02/2028');
+    expect(findLabelHints(['Scad. 30/04/2026']).expiry, '30/04/2026');
+  });
+
+  test('"= scadenza" usa la scadenza finale, anche se la corregge il GS1', () {
+    final ocr = findLabelHints(['CASEIFICIO SPINELLI', 'Scad. 01/11/26']);
+    final both = const LabelHints(expiry: '05/11/2026').merge(ocr);
+    expect(both.lotLabel, '= scadenza');
+    expect(both.lot, '05/11/2026');
+  });
 }

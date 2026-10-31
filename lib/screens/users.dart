@@ -154,6 +154,13 @@ class _NewUserDialogState extends State<_NewUserDialog> {
   bool _admin = false;
   bool _busy = false;
 
+  @override
+  void dispose() {
+    _name.dispose();
+    _pin.dispose();
+    super.dispose();
+  }
+
   Future<void> _save() async {
     setState(() => _busy = true);
     final ok = await attempt(
@@ -233,8 +240,14 @@ class _UserScreenState extends State<UserScreen> {
     }
   }
 
+  // Due tocchi veloci sugli interruttori mandavano due modifiche opposte (31/10/2026).
+  bool _saving = false;
+
   Future<void> _set(Map<String, dynamic> change, String done) async {
+    if (_saving) return;
+    setState(() => _saving = true);
     final ok = await attempt(context, () => Api.instance.patch('/admin/utenti/$_id', change));
+    if (mounted) setState(() => _saving = false);
     if (ok != null && mounted) {
       toast(context, done);
       _reload();
@@ -266,6 +279,8 @@ class _UserScreenState extends State<UserScreen> {
         ],
       ),
     );
+    // Il dialogo si chiude con un'animazione e il campo usa ancora il controller.
+    Future.delayed(const Duration(seconds: 1), pin.dispose);
     if (value == null || value.isEmpty || !mounted) return;
     await _set({'pin': value}, _isMe ? 'PIN cambiato' : 'PIN cambiato: dovrà rientrare con quello nuovo');
   }
@@ -377,7 +392,7 @@ class _UserScreenState extends State<UserScreen> {
                 title: const Text('Amministratore'),
                 subtitle: const Text('Utenti, esportazioni, elimina e rileggi schede'),
                 value: _u['admin'] == true,
-                onChanged: _isMe
+                onChanged: _isMe || _saving
                     ? null
                     : (v) async {
                         if (!v &&
@@ -393,7 +408,7 @@ class _UserScreenState extends State<UserScreen> {
                 title: const Text('Attivo'),
                 subtitle: const Text('Se spento non può più entrare'),
                 value: _u['attivo'] == true,
-                onChanged: _isMe
+                onChanged: _isMe || _saving
                     ? null
                     : (v) async {
                         if (!v &&

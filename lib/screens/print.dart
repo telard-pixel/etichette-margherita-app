@@ -106,6 +106,8 @@ class _PrintScreenState extends State<PrintScreen> {
           return;
         }
         // altrimenti si riprova al secondo dopo
+      } catch (_) {
+        // Una risposta di forma inattesa: si riprova, invece di fermare il controllo (31/10/2026).
       }
       if (mounted && generation == _generation) _follow();
     });

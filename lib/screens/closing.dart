@@ -13,7 +13,21 @@ const _wasteReasons = ['Scaduto', 'Alterato (muffa, odore)', 'Confezione rovinat
 /// Finito o Buttato (revisione 23/10/2026): la scheda esce dalle scadenze e
 /// non torna nell'avviso di ogni mattina; "Buttato" va nel registro degli
 /// scarti con il motivo. True se la scheda e' stata chiusa.
+// Un secondo tocco mentre il primo e' ancora in corso non segna due volte
+// Finito/Buttato: due righe nel registro scarti HACCP (revisione 31/10/2026).
+bool _busy = false;
+
 Future<bool> closeItem(BuildContext context, int itemId, {String? product}) async {
+  if (_busy) return false;
+  _busy = true;
+  try {
+    return await _closeItem(context, itemId, product: product);
+  } finally {
+    _busy = false;
+  }
+}
+
+Future<bool> _closeItem(BuildContext context, int itemId, {String? product}) async {
   final kind = await showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,
@@ -83,13 +97,21 @@ Future<String?> _askReason(BuildContext context) async {
       ],
     ),
   );
-  other.dispose();
+  // Il dialogo si chiude con un'animazione e il campo usa ancora il controller.
+  Future.delayed(const Duration(seconds: 1), other.dispose);
   return chosen;
 }
 
 /// Annulla Finito/Buttato: la scheda torna nelle scadenze.
 Future<bool> reopenItem(BuildContext context, int itemId) async {
-  final ok = await attempt(context, () => Api.instance.delete('/schede/$itemId/chiusura'));
+  if (_busy) return false;
+  _busy = true;
+  final Object? ok;
+  try {
+    ok = await attempt(context, () => Api.instance.delete('/schede/$itemId/chiusura'));
+  } finally {
+    _busy = false;
+  }
   if (ok == null) return false;
   archiveChanged.value++;
   if (context.mounted) toast(context, 'Scheda riaperta: torna nelle scadenze');
@@ -294,7 +316,10 @@ class _DisposalsScreenState extends State<DisposalsScreen> {
         setState(() => _rows = (body['chiusure'] as List).cast<Map<String, dynamic>>());
       }
     } on ApiError catch (e) {
-      if (mounted && request == _request) setState(() => _error = e.message);
+      if (!mounted || request != _request) return;
+      // Con il registro gia' a schermo l'errore non si vedeva (31/10/2026).
+      if (_rows != null && e.status != 401) toast(context, e.message, error: true);
+      setState(() => _error = e.message);
     }
   }
 

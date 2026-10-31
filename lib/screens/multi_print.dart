@@ -211,6 +211,8 @@ class _MultiPrintScreenState extends State<_MultiPrintScreen> {
           if (mounted) setState(() => _job = {..._job, 'stato': 'errore', 'messaggio': 'stato perso (server riavviato)'});
           return;
         }
+      } catch (_) {
+        // Una risposta di forma inattesa: si riprova, invece di fermare il controllo (31/10/2026).
       }
       if (mounted && generation == _generation) _follow();
     });

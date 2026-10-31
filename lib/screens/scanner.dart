@@ -128,6 +128,11 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       _minZoom = await camera.getMinZoomLevel();
       _maxZoom = min(await camera.getMaxZoomLevel(), 6);
       _zoom = _minZoom;
+      // Chiuso mentre si leggeva lo zoom: la fotocamera restava occupata (31/10/2026).
+      if (!mounted) {
+        camera.dispose();
+        return;
+      }
       setState(() {
         _camera = camera;
         _description = back;
@@ -232,7 +237,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     if (camera == null) return;
     try {
       await camera.setFlashMode(_torch ? FlashMode.off : FlashMode.torch);
-      setState(() => _torch = !_torch);
+      if (mounted) setState(() => _torch = !_torch);
     } catch (_) {
       if (mounted) toast(context, 'Torcia non disponibile su questo telefono');
     }

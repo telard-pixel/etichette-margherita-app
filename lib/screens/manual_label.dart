@@ -74,10 +74,9 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
     setState(() {
       if (reset) _picked = null;
     });
-    if (reset) {
-      toast(context, 'È cambiato il giorno: la data di produzione è tornata a oggi');
-      _load();
-    }
+    if (reset) toast(context, 'È cambiato il giorno: la data di produzione è tornata a oggi');
+    // Anche con "Oggi" gia' scelto: i lotti e i suggerimenti sotto erano quelli di ieri (31/10/2026).
+    _load();
   }
 
   @override

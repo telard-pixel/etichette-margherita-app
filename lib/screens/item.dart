@@ -86,6 +86,7 @@ class _ItemScreenState extends State<ItemScreen> {
   }
 
   bool _uploading = false;
+  bool _labelBusy = false;
 
   /// Un'altra foto della scheda (revisione 6/10/2026): finestra d'attesa
   /// durante l'invio (prima niente, e con la rete lenta la si rifaceva),
@@ -193,6 +194,18 @@ class _ItemScreenState extends State<ItemScreen> {
   /// allora o aprire un lotto nuovo con la data di oggi ("apertura"), che
   /// tiene il lotto del fornitore. Come nel gruppo Telegram.
   Future<void> _printLabel(Map<String, dynamic> lot) async {
+    // Con la rete lenta un secondo tocco su "Apertura oggi" creava un secondo
+    // lotto interno (revisione 31/10/2026).
+    if (_labelBusy) return;
+    setState(() => _labelBusy = true);
+    try {
+      await _chooseAndPrint(lot);
+    } finally {
+      if (mounted) setState(() => _labelBusy = false);
+    }
+  }
+
+  Future<void> _chooseAndPrint(Map<String, dynamic> lot) async {
     var chosen = lot;
     final day = lot['data_produzione'] as String? ?? '';
     final todayIso = isoDay(today());
@@ -446,7 +459,7 @@ class _ItemScreenState extends State<ItemScreen> {
                 if (s['lotto_interno'] != null) _InternalLotCard(s['lotto_interno'] as Map<String, dynamic>),
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: s['lotto_interno'] == null ? null : () => _printLabel(s['lotto_interno'] as Map<String, dynamic>),
+                  onPressed: s['lotto_interno'] == null || _labelBusy ? null : () => _printLabel(s['lotto_interno'] as Map<String, dynamic>),
                   icon: const Icon(Symbols.print_rounded),
                   label: const Text('Stampa etichetta'),
                 ),

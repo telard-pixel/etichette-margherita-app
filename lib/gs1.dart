@@ -35,23 +35,65 @@ LabelHints gs1Hints(String code) {
   return LabelHints(lot: lot == null || lot.isEmpty ? null : lot, expiry: expiry);
 }
 
+/// Lotto e scadenza dai codici a barre letti dal telefono. Lo scanner legge
+/// tutti i Code128, anche quelli che non sono GS1 (un codice articolo
+/// "1023456789" darebbe il lotto 23456789): si tengono solo quelli che lo sono
+/// davvero (revisione 31/10/2026).
+LabelHints gs1HintsFromCodes(Iterable<String> raws) =>
+    raws.where(isGs1Code).map(gs1Hints).fold(LabelHints.none, (a, b) => a.merge(b));
+
+/// Un valore grezzo e' GS1 se lo dice il lettore (]C1, ]d2, ]Q3), se ha il
+/// separatore FNC1, se comincia con un GTIN (01/02) con la cifra di controllo
+/// giusta, oppure se si legge tutto in almeno due identificatori completi.
+bool isGs1Code(String raw) {
+  if (raw.startsWith(']C1') || raw.startsWith(']d2') || raw.startsWith(']Q3')) return true;
+  if (raw.contains(_separator)) return true;
+  final gtin = RegExp(r'^0[12](\d{14})').firstMatch(raw);
+  if (gtin != null) return _gtinOk(gtin.group(1)!);
+  return _identifiers(raw, strict: true).length >= 2;
+}
+
+bool _gtinOk(String digits) {
+  var sum = 0;
+  for (var i = 0; i < digits.length - 1; i++) {
+    final d = digits.codeUnitAt(digits.length - 2 - i) - 48;
+    sum += i.isEven ? d * 3 : d;
+  }
+  return (10 - sum % 10) % 10 == digits.codeUnitAt(digits.length - 1) - 48;
+}
+
 /// Una riga di testo che e' la riga GS1 stampata: almeno due identificatori
 /// fra parentesi, cosi' "(10)" da solo in un indirizzo non conta.
 bool looksLikeGs1Line(String line) =>
     RegExp(r'\(\s*(?:01|10|1[57]|3\d{3})\s*\)').allMatches(line).length >= 2;
 
-Map<String, String> _identifiers(String value) {
+/// strict: un identificatore sconosciuto o un campo fisso troncato danno un
+/// elenco vuoto (serve a [isGs1Code]).
+Map<String, String> _identifiers(String value, {bool strict = false}) {
   if (value.contains('(')) {
-    return {for (final m in _printed.allMatches(value)) m.group(1)!: m.group(2)!.trim()};
+    return {
+      for (final m in _printed.allMatches(value))
+        // Il lotto (10) non ha spazi: "(10)AB12 500g" e' il lotto AB12 e poi altro testo (31/10/2026).
+        m.group(1)!: m.group(1) == '10' ? m.group(2)!.trim().split(RegExp(r'\s')).first : m.group(2)!.trim(),
+    };
   }
   final fields = <String, String>{};
   var rest = value.startsWith(']') && value.length > 3 ? value.substring(3) : value;
-  while (rest.length >= 2) {
+  while (true) {
+    // Un separatore in testa o dopo un campo fisso non e' un errore (31/10/2026).
+    while (rest.startsWith(_separator)) {
+      rest = rest.substring(1);
+    }
+    if (rest.length < 2) break;
     final id = _identifierAt(rest);
-    if (id == null) break; // un identificatore sconosciuto: meglio niente che mezzo lotto
+    if (id == null) {
+      if (strict) return const {};
+      break; // un identificatore sconosciuto: meglio niente che mezzo lotto
+    }
     final body = rest.substring(id.length);
     final width = _fixedLength[id] ?? (_measurement.hasMatch(id) ? 6 : null);
     if (width != null) {
+      if (strict && body.length < width) return const {};
       fields[id] = body.substring(0, width.clamp(0, body.length));
       rest = body.length > width ? body.substring(width) : '';
       continue;

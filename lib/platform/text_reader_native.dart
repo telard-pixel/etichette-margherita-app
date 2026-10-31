@@ -58,10 +58,8 @@ class TextReader {
     final text = await _recognizer.processImage(input);
     var coded = LabelHints.none;
     try {
-      for (final code in await _barcodes.processImage(input)) {
-        final raw = code.rawValue;
-        if (raw != null) coded = coded.merge(gs1Hints(raw));
-      }
+      final codes = await _barcodes.processImage(input);
+      coded = gs1HintsFromCodes([for (final code in codes) ?code.rawValue]);
     } catch (_) {
       // Il codice a barre e' un di piu': se il lettore si rompe resta il testo.
     }

@@ -113,9 +113,11 @@ class Updater {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Aggiornamento non installato'),
+          // Revisione 31/10/2026: "in conflitto" vuol dire firma diversa, cioe' un APK che non e'
+          // nostro. Disinstallare toglierebbe proprio il controllo che lo ha fermato.
           content: Text('La versione ${info.latestName} è stata scaricata ma non si è installata. '
-              'Se Android ha detto "in conflitto con un pacchetto esistente", disinstalla Etichette '
-              'e reinstallala dal link dell\'app (poi rientri con nome e PIN).'),
+              'Se Android ha detto "in conflitto con un pacchetto esistente", NON disinstallare '
+              'Etichette: avvisa l\'amministratore, l\'aggiornamento non è firmato da noi.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Ok')),
             TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Riprova')),
@@ -169,6 +171,20 @@ class Updater {
   static Future<void> install(BuildContext context, [UpdateInfo? info]) async {
     if (_installing) return;
     _installing = true;
+    if (info == null) {
+      // Dal menu Altro: l'impronta serve sempre, la si chiede al server (31/10/2026).
+      try {
+        info = await check();
+      } catch (_) {
+        _installing = false;
+        if (context.mounted) toast(context, 'Non riesco a controllare l\'aggiornamento: riprova', error: true);
+        return;
+      }
+      if (!context.mounted) {
+        _installing = false;
+        return;
+      }
+    }
     final progress = ValueNotifier<double?>(null);
     final dialog = BlockingDialog.show(
       context,
@@ -188,13 +204,15 @@ class Updater {
     try {
       final apk = await Api.instance.download('/apk', onProgress: (v) => progress.value = v);
       dialog.close();
-      final expected = info?.apkSha256;
-      if (expected != null && sha256.convert(apk).toString() != expected) {
+      final expected = info.apkSha256;
+      // Senza impronta dal server non si installa (31/10/2026): prima un file troncato andava
+      // dritto all'installatore.
+      if (expected == null || expected.isEmpty || sha256.convert(apk).toString() != expected) {
         // Download troncato o rovinato per strada: non lo si installa.
         throw ApiError(0, 'Il file scaricato non è integro: riprova');
       }
-      if (info?.latestBuild != null) {
-        await Api.instance.writeSetting('aggiornamento_tentato', '${info!.latestBuild}');
+      if (info.latestBuild != null) {
+        await Api.instance.writeSetting('aggiornamento_tentato', '${info.latestBuild}');
       }
       problem = await platform.installApk(apk);
       // Di solito e' il permesso "installa app sconosciute" appena chiesto:

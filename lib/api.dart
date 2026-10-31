@@ -232,12 +232,7 @@ class Api {
           ..headers.addAll(authHeaders)
           ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
         final streamed = await _client.send(request).timeout(const Duration(seconds: 40));
-        final body = await _decode(await http.Response.fromStream(streamed));
-        var coded = LabelHints.none;
-        for (final code in (body['codici'] as List? ?? const [])) {
-          if (code is Map) coded = coded.merge(LabelHints(lot: code['lotto'] as String?, expiry: code['scadenza'] as String?));
-        }
-        return coded.merge(findLabelHints([for (final line in (body['righe'] as List? ?? const [])) '$line']));
+        return hintsFromPhotoCheck(await _decode(await http.Response.fromStream(streamed)));
       });
 
   /// Immagini e file (etichetta PNG, esportazioni): i byte, o un errore.
@@ -267,4 +262,18 @@ class Api {
         }
         return data.takeBytes();
       });
+}
+
+/// La risposta di /controllo-foto: i codici a barre letti dal server vincono
+/// sulle righe di testo (fuori dalla classe per poterlo provare, 31/10/2026).
+LabelHints hintsFromPhotoCheck(Map<String, dynamic> body) {
+  var coded = LabelHints.none;
+  for (final code in (body['codici'] is List ? body['codici'] as List : const [])) {
+    if (code is Map) {
+      final lot = code['lotto'], expiry = code['scadenza'];
+      coded = coded.merge(LabelHints(lot: lot is String ? lot : null, expiry: expiry is String ? expiry : null));
+    }
+  }
+  final lines = body['righe'] is List ? body['righe'] as List : const [];
+  return coded.merge(findLabelHints([for (final line in lines) '$line']));
 }

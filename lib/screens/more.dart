@@ -170,7 +170,7 @@ class _MoreScreenState extends State<MoreScreen> {
         // senza modo di salvarlo ne' di tornare indietro. Il link resta per
         // i browser che non sanno condividere file.
         status.value = 'Scarico $name…';
-        final data = await Api.instance.download('/admin/esporta/$id/$name');
+        final data = await Api.instance.download('/admin/esporta/$id/${Uri.encodeComponent(name)}');
         dialog.close();
         if (!mounted) return;
         await showDialog<void>(
@@ -190,9 +190,14 @@ class _MoreScreenState extends State<MoreScreen> {
                   }
                   // Solo dove il browser non sa condividere file serve il link firmato:
                   // cosi' non lo si chiede piu' al server a ogni export dal telefono.
-                  final link = (await Api.instance.post('/admin/esporta/$id/${Uri.encodeComponent(name)}/link', {}))['url'] as String;
-                  await platform.openDownloadLink('$kServer$link');
-                  if (context.mounted) Navigator.pop(context);
+                  try {
+                    final link = (await Api.instance.post('/admin/esporta/$id/${Uri.encodeComponent(name)}/link', {}))['url'] as String;
+                    await platform.openDownloadLink('$kServer$link');
+                    if (context.mounted) Navigator.pop(context);
+                  } on ApiError catch (e) {
+                    // Senza rete il tocco non faceva niente, senza dire perche' (31/10/2026).
+                    if (context.mounted) toast(context, e.message, error: true);
+                  }
                 },
                 child: const Text('Salva o invia'),
               ),
@@ -202,7 +207,7 @@ class _MoreScreenState extends State<MoreScreen> {
         return;
       }
       status.value = 'Scarico $name…';
-      final data = await Api.instance.download('/admin/esporta/$id/$name');
+      final data = await Api.instance.download('/admin/esporta/$id/${Uri.encodeComponent(name)}');
       dialog.close();
       problem = await platform.deliverFile(name, data);
     } on ApiError catch (e) {
@@ -290,11 +295,11 @@ class _MoreScreenState extends State<MoreScreen> {
                 trailing: update?.available == true
                     ? FilledButton(
                         style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 16)),
-                        onPressed: () => Updater.install(context),
+                        onPressed: () => Updater.install(context, update),
                         child: const Text('Installa'),
                       )
                     : null,
-                onTap: update?.available == true ? () => Updater.install(context) : _load,
+                onTap: update?.available == true ? () => Updater.install(context, update) : _load,
               ),
             ]),
           ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -26,12 +28,28 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
     super.initState();
     archiveChanged.addListener(_load);
     _load();
+    _scheduleMidnight();
   }
 
   @override
   void dispose() {
+    _midnight?.cancel();
     archiveChanged.removeListener(_load);
     super.dispose();
+  }
+
+  // Il telefono lasciato aperto su Scadenze: dopo mezzanotte "domani" diventa
+  // "oggi" e "oggi" diventa "scaduto" (revisione 31/10/2026).
+  Timer? _midnight;
+
+  void _scheduleMidnight() {
+    _midnight?.cancel();
+    final now = DateTime.now();
+    final next = DateTime(now.year, now.month, now.day + 1, 0, 0, 2);
+    _midnight = Timer(next.difference(now), () {
+      if (mounted) _load();
+      _scheduleMidnight();
+    });
   }
 
   int _request = 0;
@@ -52,7 +70,10 @@ class _ExpiringScreenState extends State<ExpiringScreen> {
         });
       }
     } on ApiError catch (e) {
-      if (mounted && request == _request) setState(() => _error = e.message);
+      if (!mounted || request != _request) return;
+      // Con l'elenco gia' a schermo l'errore non si vedeva: restava quello vecchio senza avviso.
+      if (_items != null && e.status != 401) toast(context, e.message, error: true);
+      setState(() => _error = e.message);
     }
   }
 

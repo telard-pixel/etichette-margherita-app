@@ -21,16 +21,19 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Ubuntu fissato (31/10/2026): ubuntu-latest e' passato da solo alla 26 il 19/10.
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      # Le action fissate al commit (revisione 31/10/2026): un tag si puo' spostare, e qui
+      # girano accanto alla chiave di firma.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: 3.47.6
@@ -45,7 +48,8 @@ jobs:
         # Il progetto tiene solo i file Android personalizzati (manifest):
         # il resto lo genera flutter create, che non tocca i file esistenti.
         run: |
-          flutter create --org it.margherita --project-name etichette_margherita --platforms android,web .
+          # --no-pub: le librerie le prende solo il passo dopo, dal lock.
+          flutter create --no-pub --org it.margherita --project-name etichette_margherita --platforms android,web .
           python3 tool/web_tweak.py
           # Versione minima di Android scritta qui, non lasciata a flutter
           # create: un aggiornamento di Flutter la cambiava senza avvisare.
@@ -54,13 +58,28 @@ jobs:
 
       # pubspec.lock e' nel repository (10/10/2026): le librerie sono quelle provate, non quelle che
       # escono quel giorno. Per aggiornarle: modificare pubspec.yaml e prendere il lock dalla CI.
-      - run: flutter pub get
+      # --enforce-lockfile (31/10/2026): se pubspec.yaml e il lock non combaciano la build si ferma,
+      # invece di prendere in silenzio versioni nuove.
+      - run: flutter pub get --enforce-lockfile
 
       - name: Controllo del codice
         run: flutter analyze --no-fatal-infos
 
       - name: Test
-        run: flutter test
+        # Il numero dei test non deve scendere (CONSTRAINTS.md): un test cancellato ferma la build.
+        run: |
+          flutter test --file-reporter json:test-report.json
+          python3 - <<'PY'
+          import json
+          done = 0
+          for line in open("test-report.json"):
+              e = json.loads(line)
+              if e.get("type") == "testDone" and not e.get("hidden") and e.get("result") == "success" and not e.get("skipped"):
+                  done += 1
+          print(f"test passati: {done}")
+          if done < 76:
+              raise SystemExit(f"test passati {done}, il minimo e' 76: un test e' stato tolto o saltato")
+          PY
 
       - name: Compila
         # Solo telefoni veri (ARM 32 e 64 bit): niente x86_64 degli emulatori.
@@ -75,7 +94,15 @@ jobs:
           tar -czf "EtichetteMargherita-web-$VERSION.tgz" -C build/web .
           ls -l "EtichetteMargherita-web-$VERSION.tgz"
 
+      # Solo main firma con la chiave vera (revisione 31/10/2026): prima ogni ramo dava un APK
+      # che si installava sopra quello di produzione. Sui rami resta l'APK con la chiave di
+      # debug di Flutter: si prova, ma non si installa sopra l'app vera.
+      - name: APK di prova (rami)
+        if: github.ref != 'refs/heads/main'
+        run: cp build/app/outputs/flutter-apk/app-release.apk "EtichetteMargherita-$VERSION-prova.apk"
+
       - name: Firma
+        if: github.ref == 'refs/heads/main'
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -89,12 +116,14 @@ jobs:
           rm "$RUNNER_TEMP/release.p12"
           AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
           "$AAPT2" dump permissions "EtichetteMargherita-$VERSION.apk"
+          # Android minimo e di destinazione nel log: li genera flutter create.
+          "$AAPT2" dump badging "EtichetteMargherita-$VERSION.apk" | grep -E "^(sdkVersion|targetSdkVersion)"
           ls -l "EtichetteMargherita-$VERSION.apk"
 
       # Copia di prova della build (~33 MB), solo per i rami: le versioni di main
       # stanno gia' nelle Release. Lo spazio artifact (500 MB) e' unico per tutto
       # l'account e anche con 3 giorni si e' riempito di nuovo (13/10/2026): ora 1 giorno.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.ref != 'refs/heads/main'
         with:
           name: EtichetteMargherita-${{ env.VERSION }}
@@ -106,7 +135,20 @@ jobs:
       # Prima sul server (e' da li' che l'app si aggiorna), poi la release:
       # se il caricamento fallisce, "Re-run" lo rifa' senza inciampare in una
       # release gia' creata.
-      - name: Carica sul server
+      # 31/10/2026: prima il web e poi l'APK, in due passi. Se si ferma a meta' i telefoni non
+      # si aggiornano a una versione che il web non ha ancora.
+      - name: Carica sul server (web)
+        if: github.ref == 'refs/heads/main'
+        env:
+          UPLOAD_TOKEN: ${{ secrets.APP_UPLOAD_TOKEN }}
+        run: |
+          curl --fail-with-body -sS --retry 3 --retry-all-errors -X POST \
+            -H "X-Upload-Token: $UPLOAD_TOKEN" \
+            -F "build=$BUILD" -F "versione=$VERSION" \
+            -F "archivio=@EtichetteMargherita-web-$VERSION.tgz" \
+            https://etichette-margherita.duckdns.org/app/api/v1/admin/web
+
+      - name: Carica sul server (APK)
         if: github.ref == 'refs/heads/main'
         env:
           UPLOAD_TOKEN: ${{ secrets.APP_UPLOAD_TOKEN }}
@@ -116,11 +158,6 @@ jobs:
             -F "build=$BUILD" -F "versione=$VERSION" \
             -F "apk=@EtichetteMargherita-$VERSION.apk" \
             https://etichette-margherita.duckdns.org/app/api/v1/admin/apk
-          curl --fail-with-body -sS --retry 3 --retry-all-errors -X POST \
-            -H "X-Upload-Token: $UPLOAD_TOKEN" \
-            -F "build=$BUILD" -F "versione=$VERSION" \
-            -F "archivio=@EtichetteMargherita-web-$VERSION.tgz" \
-            https://etichette-margherita.duckdns.org/app/api/v1/admin/web
 
       - name: Pubblica release
         if: github.ref == 'refs/heads/main'
@@ -129,7 +166,8 @@ jobs:
         run: |
           # --target: il tag va sul commit compilato, non sulla punta di main (con due push
           # ravvicinati la release 1.0.N avrebbe avuto il tag del commit dopo).
-          gh release create "v$VERSION" EtichetteMargherita-*.apk --target "$GITHUB_SHA" \
+          # Anche l'archivio web, per poter tornare a quello di prima.
+          gh release create "v$VERSION" EtichetteMargherita-*.apk EtichetteMargherita-web-*.tgz --target "$GITHUB_SHA" \
             --title "Etichette Margherita $VERSION" \
             --notes "Si aggiorna da sola dall'app (Altro › Aggiornamento). L'APK è anche qui sotto." \
-          || gh release upload "v$VERSION" EtichetteMargherita-*.apk --clobber
+          || gh release upload "v$VERSION" EtichetteMargherita-*.apk EtichetteMargherita-web-*.tgz --clobber

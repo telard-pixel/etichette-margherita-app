@@ -88,6 +88,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     archiveChanged.removeListener(_load);
     _debounce?.cancel();
     _poll?.cancel();
+    _search.dispose();
     super.dispose();
   }
 
@@ -182,6 +183,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         _loading = false;
       });
       _schedulePoll(); // senza rete si riprova, piu' piano
+    } on TypeError {
+      // Una risposta di forma inattesa: la rotella girava per sempre (31/10/2026).
+      if (!mounted || request != _request) return;
+      setState(() {
+        _error = 'Risposta del server non valida: riprova';
+        _loading = false;
+      });
+      _schedulePoll();
     }
   }
 
