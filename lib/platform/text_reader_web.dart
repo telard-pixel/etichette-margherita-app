@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:camera/camera.dart';
 
 import '../label_hints.dart';
@@ -8,6 +10,7 @@ const bool canReadText = false;
 class TextReader {
   int lastLineCount = 0;
   Future<LabelHints> readFile(String path) async => LabelHints.none;
+  Future<LabelHints> readBytes(Uint8List bytes, {required String beside}) async => LabelHints.none;
   Future<LabelHints> readFrame(CameraImage image, CameraDescription camera) async => LabelHints.none;
   Future<void> close() async {}
 }

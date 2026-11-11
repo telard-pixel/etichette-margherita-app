@@ -12,6 +12,7 @@ import '../api.dart';
 import '../error_report.dart';
 import '../label_hints.dart';
 import '../platform/text_reader.dart';
+import '../scanner_crop.dart';
 import '../ui.dart';
 
 /// Come e' finito lo scanner: la foto scelta, oppure "usa la fotocamera del
@@ -62,6 +63,10 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   bool _torch = false;
   Timer? _nextRead;
   double _zoom = 1, _minZoom = 1, _maxZoom = 1, _zoomAtPinch = 1;
+
+  /// Quanto e' grande lo spazio dove si disegna l'anteprima: serve allo
+  /// scatto per tenere della foto solo quello che si vedeva (11/11/2026).
+  Size? _viewport;
 
   /// Dopo lo scatto: la foto pronta da inviare e cosa ci ha trovato il telefono.
   Uint8List? _shot;
@@ -188,7 +193,15 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     try {
       if (camera.value.isStreamingImages) await camera.stopImageStream();
       final file = await camera.takePicture();
-      final bytes = await compute(_shrink, await file.readAsBytes());
+      // L'anteprima arriva in orizzontale: in verticale si scambiano i lati.
+      final preview = camera.value.previewSize;
+      final viewport = _viewport;
+      final job = _ShrinkJob(
+        await file.readAsBytes(),
+        streamAspect: preview == null || preview.width <= 0 ? 0 : preview.height / preview.width,
+        viewAspect: viewport == null || viewport.height <= 0 ? 0 : viewport.width / viewport.height,
+      );
+      final bytes = await compute(_shrink, job);
       if (!mounted) return;
       // La foto si vede subito; il controllo arriva dopo (hints null = in corso).
       setState(() {
@@ -198,7 +211,13 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       });
       var hints = _live;
       try {
-        hints = hints.merge(await _reader.readFile(file.path));
+        // Si legge solo quello che resta nella foto: un lotto che stava
+        // fuori dall'inquadratura non deve risultare trovato. Alla massima
+        // risoluzione, come prima: i lotti stampati sono minuscoli.
+        final visible = await compute(_cropOnly, job);
+        hints = hints.merge(visible == null
+            ? await _reader.readFile(file.path)
+            : await _reader.readBytes(visible, beside: file.path));
         _photoLines = _reader.lastLineCount;
       } catch (e, stack) {
         ErrorReport.send(e, stack, where: 'scanner: foto');
@@ -271,7 +290,9 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
     return Stack(children: [
       Positioned.fill(
         child: LayoutBuilder(
-          builder: (context, box) => GestureDetector(
+          builder: (context, box) {
+            _viewport = box.biggest;
+            return GestureDetector(
             onTapUp: (d) => _focusAt(d, box),
             onScaleStart: (_) => _zoomAtPinch = _zoom,
             onScaleUpdate: (d) {
@@ -287,7 +308,8 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
                 child: SizedBox(width: preview.height, height: preview.width, child: CameraPreview(camera)),
               ),
             ),
-          ),
+          );
+          },
         ),
       ),
       const Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _FramePainter()))),
@@ -443,12 +465,30 @@ class PhotoReview extends StatelessWidget {
   }
 }
 
+/// La foto appena scattata e le misure dell'anteprima, per l'isolate.
+class _ShrinkJob {
+  const _ShrinkJob(this.data, {required this.streamAspect, required this.viewAspect});
+  final Uint8List data;
+  /// Larghezza/altezza, in verticale: dell'anteprima e dello spazio a schermo.
+  final double streamAspect, viewAspect;
+}
+
 /// La foto come la mandava image_picker: lato lungo al massimo 2400 px,
-/// JPEG qualita' 88, raddrizzata secondo l'EXIF. Gira in un isolate.
-Uint8List _shrink(Uint8List data) {
-  final decoded = img.decodeJpg(data);
-  if (decoded == null) return data;
+/// JPEG qualita' 88, raddrizzata secondo l'EXIF. Prima si tiene solo quello
+/// che si vedeva nell'anteprima (vedi scanner_crop.dart). Gira in un isolate.
+Uint8List _shrink(_ShrinkJob job) {
+  final decoded = img.decodeJpg(job.data);
+  if (decoded == null) return job.data;
   var picture = img.bakeOrientation(decoded);
+  final visible = visibleInPreview(
+    photoWidth: picture.width,
+    photoHeight: picture.height,
+    streamAspect: job.streamAspect,
+    viewAspect: job.viewAspect,
+  );
+  if (visible != null) {
+    picture = img.copyCrop(picture, x: visible.left, y: visible.top, width: visible.width, height: visible.height);
+  }
   const longest = 2400;
   if (max(picture.width, picture.height) > longest) {
     picture = picture.width >= picture.height
@@ -456,6 +496,25 @@ Uint8List _shrink(Uint8List data) {
         : img.copyResize(picture, height: longest, interpolation: img.Interpolation.average);
   }
   return img.encodeJpg(picture, quality: 88);
+}
+
+/// Solo il ritaglio, senza ridurre: e' la foto che legge il telefono.
+/// `null` quando non c'e' niente da ritagliare (si legge il file com'e').
+Uint8List? _cropOnly(_ShrinkJob job) {
+  final decoded = img.decodeJpg(job.data);
+  if (decoded == null) return null;
+  final picture = img.bakeOrientation(decoded);
+  final visible = visibleInPreview(
+    photoWidth: picture.width,
+    photoHeight: picture.height,
+    streamAspect: job.streamAspect,
+    viewAspect: job.viewAspect,
+  );
+  if (visible == null) return null;
+  return img.encodeJpg(
+    img.copyCrop(picture, x: visible.left, y: visible.top, width: visible.width, height: visible.height),
+    quality: 92,
+  );
 }
 
 /// "Lotto ✓ L261190" in verde, oppure "Lotto ?" in grigio.

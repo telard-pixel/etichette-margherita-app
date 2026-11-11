@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' show Size;
 
@@ -23,6 +24,20 @@ class TextReader {
   int lastLineCount = 0;
 
   Future<LabelHints> readFile(String path) => _read(InputImage.fromFilePath(path));
+
+  /// La foto gia' pronta da inviare (ritagliata e ridotta): ML Kit vuole un
+  /// file, quindi si scrive accanto a [beside] e si toglie dopo la lettura.
+  Future<LabelHints> readBytes(Uint8List bytes, {required String beside}) async {
+    final file = File('$beside.inviata.jpg');
+    await file.writeAsBytes(bytes, flush: true);
+    try {
+      return await readFile(file.path);
+    } finally {
+      try {
+        await file.delete();
+      } catch (_) {}
+    }
+  }
 
   /// Un fotogramma dell'anteprima. Alcuni telefoni lo danno in NV21 (un
   /// piano), altri in YUV_420_888 (tre piani) anche se si chiede NV21: il
