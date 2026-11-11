@@ -23,6 +23,11 @@ jobs:
   build:
     # Ubuntu fissato (31/10/2026): ubuntu-latest e' passato da solo alla 26 il 19/10.
     runs-on: ubuntu-24.04
+    # Le chiavi di firma e di caricamento stanno nell'ambiente "produzione",
+    # che GitHub apre solo al ramo main (revisione 11/11/2026): un altro ramo,
+    # anche con questo file modificato, non le puo' leggere. Sugli altri rami
+    # il job gira senza ambiente.
+    environment: ${{ github.ref == 'refs/heads/main' && 'produzione' || '' }}
     steps:
       # Le action fissate al commit (revisione 31/10/2026): un tag si puo' spostare, e qui
       # girano accanto alla chiave di firma.
@@ -80,8 +85,8 @@ jobs:
               if e.get("type") == "testDone" and not e.get("hidden") and e.get("result") == "success" and not e.get("skipped"):
                   done += 1
           print(f"test passati: {done}")
-          if done < 76:
-              raise SystemExit(f"test passati {done}, il minimo e' 76: un test e' stato tolto o saltato")
+          if done < 80:
+              raise SystemExit(f"test passati {done}, il minimo e' 80: un test e' stato tolto o saltato")
           PY
 
       - name: Compila
