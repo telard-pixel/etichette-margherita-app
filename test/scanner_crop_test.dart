@@ -25,12 +25,14 @@ void main() {
     });
 
     test('non si tiene mai piu\' della foto', () {
-      // Foto 9:16 e anteprima 3:4: l'anteprima e' piu' larga della foto.
-      final rect = visibleInPreview(photoWidth: 2250, photoHeight: 4000, streamAspect: 3 / 4, viewAspect: 0.7);
-      expect(rect, isNotNull);
-      expect(rect!.width, 2250);
-      expect(rect.left, 0);
-      expect(rect.top + rect.height, lessThanOrEqualTo(4000));
+      // Foto 9:16 e anteprima 3:4: l'anteprima e' piu' larga della foto. Con
+      // uno schermo quadrato si taglia sopra e sotto, e ai lati si tiene
+      // tutta la foto, non i 3000 px che l'anteprima mostrava.
+      final rect = visibleInPreview(photoWidth: 2250, photoHeight: 4000, streamAspect: 3 / 4, viewAspect: 1);
+      expect(rect, const CropRect(0, 500, 2250, 3000));
+      // Con uno schermo stretto quasi quanto l'anteprima non resta niente da
+      // togliere: la foto e' gia' piu' stretta di quello che si vedeva.
+      expect(visibleInPreview(photoWidth: 2250, photoHeight: 4000, streamAspect: 3 / 4, viewAspect: 0.7), isNull);
     });
 
     test('niente ritaglio quando non serve o non si puo\' sapere', () {
