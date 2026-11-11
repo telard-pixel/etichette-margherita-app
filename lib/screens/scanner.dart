@@ -215,6 +215,11 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         // fuori dall'inquadratura non deve risultare trovato. Alla massima
         // risoluzione, come prima: i lotti stampati sono minuscoli.
         final visible = await compute(_cropOnly, job);
+        // Con la foto ritagliata non vale piu' quello che ha letto
+        // l'anteprima: i suoi fotogrammi vanno oltre i bordi dello schermo, e
+        // un lotto visto li' risulterebbe verde senza essere nella foto
+        // (revisione 11/11/2026). Conta solo la foto.
+        if (visible != null) hints = LabelHints.none;
         hints = hints.merge(visible == null
             ? await _reader.readFile(file.path)
             : await _reader.readBytes(visible, beside: file.path));
