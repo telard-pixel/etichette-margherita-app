@@ -207,7 +207,9 @@ class Updater {
       final expected = info.apkSha256;
       // Senza impronta dal server non si installa (31/10/2026): prima un file troncato andava
       // dritto all'installatore.
-      if (expected == null || expected.isEmpty || sha256.convert(apk).toString() != expected) {
+      // In minuscolo tutte e due (revisione 11/11/2026): un'impronta scritta in maiuscolo
+      // dal server faceva risultare "non integro" ogni aggiornamento.
+      if (expected == null || expected.isEmpty || sha256.convert(apk).toString() != expected.trim().toLowerCase()) {
         // Download troncato o rovinato per strada: non lo si installa.
         throw ApiError(0, 'Il file scaricato non è integro: riprova');
       }

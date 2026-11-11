@@ -214,7 +214,13 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
         // Si legge solo quello che resta nella foto: un lotto che stava
         // fuori dall'inquadratura non deve risultare trovato. Alla massima
         // risoluzione, come prima: i lotti stampati sono minuscoli.
-        final visible = await compute(_cropOnly, job);
+        // Nel browser il telefono non legge il testo (readBytes da' sempre
+        // niente) e compute gira nel thread della pagina: il ritaglio a piena
+        // risoluzione si salta (revisione 11/11/2026).
+        final visible = canReadText ? await compute(_cropOnly, job) : null;
+        // Lo scanner puo' essere stato chiuso con "Usa la foto" durante il
+        // controllo: il lettore e' gia' chiuso, non lo si usa piu'.
+        if (!mounted) return;
         // Con la foto ritagliata non vale piu' quello che ha letto
         // l'anteprima: i suoi fotogrammi vanno oltre i bordi dello schermo, e
         // un lotto visto li' risulterebbe verde senza essere nella foto
@@ -229,7 +235,7 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
       }
       // Quello che il telefono non trova lo cerca anche il server, come
       // nella webapp: due lettori diversi sbagliano su foto diverse.
-      if (!hints.merge(widget.before).complete) {
+      if (mounted && !hints.merge(widget.before).complete) {
         try {
           hints = hints.merge(await Api.instance.checkPhoto(bytes));
         } catch (_) {}
