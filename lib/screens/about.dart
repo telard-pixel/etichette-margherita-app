@@ -62,7 +62,7 @@ class _AboutScreenState extends State<AboutScreen> {
           _section('Sul server', const [
             'Le foto delle etichette e quello che si legge (prodotto, lotto, scadenza, produttore, allergeni).',
             'Chi ha mandato ogni foto e chi ha fatto ogni correzione, con data e ora.',
-            'Nome, PIN (solo in forma cifrata, mai leggibile) e i telefoni collegati di ogni utente.',
+            'Nome, PIN (solo in forma cifrata, mai leggibile), la foto profilo (solo se la metti) e i telefoni collegati di ogni utente.',
             'Le foto restano anche sul cloud del ristorante; un backup cifrato si fa ogni settimana.',
           ]),
           const SizedBox(height: 12),

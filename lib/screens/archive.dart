@@ -571,6 +571,8 @@ class ItemTile extends StatelessWidget {
     // Durante il caricamento sul cloud la scheda e' gia' letta: si vede il prodotto.
     final reading = s['in_lavorazione'] == true && s['in_archiviazione'] != true;
     final who = s['dall_app'] == true ? '${shortName(s['inviata_da'])} · dall\'app' : shortName(s['inviata_da']);
+    final author = (s['inviata_da'] as String?)?.trim() ?? '';
+    final authorId = s['inviata_da_id'];
     final internal = s['lotto_interno_codice'] as String?;
     return Panel(
       padding: const EdgeInsets.all(12),
@@ -626,6 +628,12 @@ class ItemTile extends StatelessWidget {
               ]),
             const SizedBox(height: 7),
             Row(children: [
+              // La foto profilo di chi l'ha mandata (o le iniziali), piccola
+              // quanto la riga di testo: l'altezza della scheda non cambia.
+              if (author.isNotEmpty) ...[
+                Avatar(author, userId: authorId is int ? authorId : null, size: 16, index: author.length),
+                const SizedBox(width: 5),
+              ],
               Expanded(
                 child: Text('${whenArrived(s['arrivata_alle'])} · $who',
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: C.muted)),

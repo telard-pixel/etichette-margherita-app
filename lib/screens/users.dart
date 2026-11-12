@@ -80,7 +80,7 @@ class _UsersScreenState extends State<UsersScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(children: [
-            Initials(u['nome'] as String, index: index),
+            Avatar(u['nome'] as String, userId: u['id'] is int ? u['id'] as int : null, index: index),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -252,6 +252,23 @@ class _UserScreenState extends State<UserScreen> {
       toast(context, done);
       _reload();
     }
+  }
+
+  bool get _hasPhoto => Api.instance.avatars.containsKey(_u['id']);
+
+  /// Un admin toglie la foto profilo di un utente (foto fuori luogo).
+  Future<void> _removePhoto() async {
+    if (_saving ||
+        !await _confirm('Togliere la foto profilo di ${_u['nome']}?', 'Al suo posto tornano le iniziali. Potrà metterne un\'altra.', 'Togli')) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _saving = true);
+    final ok = await attempt(context, () => Api.instance.delete('/admin/utenti/$_id/foto'));
+    await Api.instance.loadAvatars();
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok != null) toast(context, 'Foto profilo tolta');
   }
 
   Future<void> _changePin() async {
@@ -442,6 +459,15 @@ class _UserScreenState extends State<UserScreen> {
           if (!_isMe)
             Text('"Scollega" lo fa uscire da tutti i telefoni: dovrà rientrare con il PIN',
                 textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: C.muted)),
+          if (!_isMe && _hasPhoto)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: TextButton.icon(
+                onPressed: _saving ? null : _removePhoto,
+                icon: const Icon(Symbols.no_photography_rounded, size: 18),
+                label: const Text('Togli la foto profilo'),
+              ),
+            ),
         ]),
       ),
     );

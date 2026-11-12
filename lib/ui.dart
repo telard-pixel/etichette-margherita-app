@@ -371,7 +371,130 @@ class Initials extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-      child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: size * .34)),
+      // Nel cerchietto accanto al nome (16 punti) le lettere restano leggibili.
+      child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700, fontSize: size * (size < 24 ? .44 : .34))),
+    );
+  }
+}
+
+/// Foto profilo gia' scaricate ("utente:versione" -> byte): poche decine di
+/// KB l'una, e una sola versione per utente.
+final Map<String, Uint8List> _avatarCache = {};
+final Map<String, Future<Uint8List?>> _avatarLoading = {};
+
+Future<Uint8List?> _loadAvatar(int userId, int version) {
+  final key = '$userId:$version';
+  final cached = _avatarCache[key];
+  if (cached != null) return Future<Uint8List?>.value(cached);
+  return _avatarLoading[key] ??= () async {
+    try {
+      final data = await Api.instance.bytes('/utenti/$userId/foto', {'v': '$version'});
+      if (!_looksComplete(data)) return null;
+      final Uint8List bytes = data is Uint8List ? data : Uint8List.fromList(data);
+      _avatarCache.removeWhere((k, _) => k.startsWith('$userId:'));
+      if (_avatarCache.length >= 60) _avatarCache.remove(_avatarCache.keys.first);
+      _avatarCache[key] = bytes;
+      return bytes;
+    } catch (_) {
+      return null; // restano le iniziali
+    }
+  }().whenComplete(() {
+    _avatarLoading.remove(key);
+  });
+}
+
+/// La foto profilo di un utente dell'app in un cerchio (12/11/2026). Occupa
+/// sempre [size] x [size], come [Initials]: chi non ha la foto, le schede
+/// arrivate da Telegram e il tempo dello scaricamento mostrano le iniziali,
+/// quindi l'impaginazione non cambia mai.
+class Avatar extends StatefulWidget {
+  const Avatar(this.name, {super.key, this.userId, this.size = 44, this.index = 0});
+  final String name;
+  /// Il numero dell'utente dell'app, o null (Telegram, sconosciuto).
+  final int? userId;
+  final double size;
+  final int index;
+  @override
+  State<Avatar> createState() => _AvatarState();
+}
+
+class _AvatarState extends State<Avatar> {
+  Uint8List? _data;
+  /// La foto in vista o in arrivo ("utente:versione"), o null.
+  String? _wanted;
+
+  @override
+  void initState() {
+    super.initState();
+    Api.instance.avatarsChanged.addListener(_refresh);
+    _pick();
+  }
+
+  @override
+  void didUpdateWidget(Avatar old) {
+    super.didUpdateWidget(old);
+    if (old.userId != widget.userId) {
+      _data = null;
+      _wanted = null;
+      _pick();
+    }
+  }
+
+  @override
+  void dispose() {
+    Api.instance.avatarsChanged.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    final before = _data;
+    _pick();
+    if (!identical(before, _data)) setState(() {});
+  }
+
+  /// Sceglie cosa mostrare, senza ridisegnare: la foto se e' gia' in
+  /// memoria, altrimenti la chiede e intanto lascia quello che c'e'.
+  void _pick() {
+    final id = widget.userId;
+    final version = id == null ? null : Api.instance.avatars[id];
+    final key = version == null ? null : '$id:$version';
+    if (key == _wanted) return;
+    _wanted = key;
+    if (id == null || version == null) {
+      _data = null;
+      return;
+    }
+    final ready = _avatarCache[key];
+    if (ready != null) {
+      _data = ready;
+      return;
+    }
+    _loadAvatar(id, version).then((bytes) {
+      if (mounted && _wanted == key && bytes != null) setState(() => _data = bytes);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = _data;
+    final size = widget.size;
+    final initials = Initials(widget.name, size: size, index: widget.index);
+    if (data == null) return initials;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: Image.memory(
+          data,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          cacheWidth: (size * 3).round(),
+          errorBuilder: (context, error, stack) => initials,
+        ),
+      ),
     );
   }
 }

@@ -392,6 +392,15 @@ class _ItemScreenState extends State<ItemScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
+                      if (((s['inviata_da'] as String?) ?? '').trim().isNotEmpty) ...[
+                        Avatar(
+                          (s['inviata_da'] as String).trim(),
+                          userId: s['inviata_da_id'] is int ? s['inviata_da_id'] as int : null,
+                          size: 16,
+                          index: (s['inviata_da'] as String).trim().length,
+                        ),
+                        const SizedBox(width: 5),
+                      ],
                       Expanded(
                         child: Text(
                           '#${s['id']} · ${whenArrived(s['arrivata_alle'])} · ${s['inviata_da'] ?? ''}${s['dall_app'] == true ? ' · app' : ''}',

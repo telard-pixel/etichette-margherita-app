@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -52,6 +53,16 @@ class Api {
   String userName = '';
   bool isAdmin = false;
 
+  /// Il proprio numero utente sul server: serve per la foto profilo.
+  int? userId;
+
+  /// Chi ha una foto profilo: numero utente -> versione della foto
+  /// (12/11/2026). La versione cambia quando la foto cambia.
+  Map<int, int> avatars = {};
+
+  /// Cresce quando le foto profilo cambiano: chi le mostra si ridisegna.
+  final ValueNotifier<int> avatarsChanged = ValueNotifier(0);
+
   /// Chiamata quando il server dice che l'accesso non vale piu'.
   void Function()? onLoggedOut;
 
@@ -67,6 +78,7 @@ class Api {
       token = await _storage.read(key: 'token');
       userName = await _storage.read(key: 'nome') ?? '';
       isAdmin = await _storage.read(key: 'admin') == '1';
+      userId = int.tryParse(await _storage.read(key: 'id') ?? '');
     } catch (_) {
       // Archivio cifrato illeggibile (es. telefono ripristinato da un
       // backup): si ricomincia dall'accesso invece di restare sulla rotella.
@@ -83,8 +95,7 @@ class Api {
     onLoggedOut = null;
     try {
       final me = await get('/me');
-      userName = me['utente']['nome'] as String;
-      isAdmin = me['utente']['admin'] == true;
+      _readUser(me['utente']);
       await _saveUser();
       return true;
     } on ApiError catch (e) {
@@ -98,16 +109,73 @@ class Api {
   Future<void> login(String name, String pin) async {
     final body = await post('/login', {'nome': name, 'pin': pin, 'dispositivo': await platform.deviceName()});
     token = body['token'] as String;
-    userName = body['utente']['nome'] as String;
-    isAdmin = body['utente']['admin'] == true;
+    _readUser(body['utente']);
     await _storage.write(key: 'token', value: token);
     await _saveUser();
+  }
+
+  void _readUser(dynamic user) {
+    userName = user['nome'] as String;
+    isAdmin = user['admin'] == true;
+    final id = user['id'];
+    userId = id is int ? id : null;
+  }
+
+  /// Chi ha una foto profilo. Se non riesce (rete assente) restano le
+  /// iniziali: non e' mai un errore da mostrare.
+  Future<void> loadAvatars() async {
+    if (token == null) return;
+    try {
+      final body = await get('/utenti/foto');
+      final found = <int, int>{};
+      final raw = body['foto'];
+      if (raw is Map) {
+        raw.forEach((key, value) {
+          final id = int.tryParse('$key');
+          if (id != null && value is int) found[id] = value;
+        });
+      }
+      if (!mapEquals(found, avatars)) {
+        avatars = found;
+        avatarsChanged.value++;
+      }
+    } catch (_) {}
+  }
+
+  /// La propria foto profilo: il server la ritaglia quadrata e la riduce.
+  Future<void> uploadAvatar(Uint8List photo) => _guard(() async {
+        final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
+        final request = http.MultipartRequest('POST', uri('/me/foto'))
+          ..headers.addAll(authHeaders)
+          ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
+        final streamed = await _client.send(request).timeout(const Duration(minutes: 1));
+        final body = await _decode(await http.Response.fromStream(streamed));
+        final id = userId;
+        final version = body['foto'];
+        if (id != null && version is int) {
+          avatars = {...avatars, id: version};
+          avatarsChanged.value++;
+        } else {
+          await loadAvatars();
+        }
+      });
+
+  /// Toglie la propria foto profilo: tornano le iniziali.
+  Future<void> removeAvatar() async {
+    await delete('/me/foto');
+    final id = userId;
+    if (id != null && avatars.containsKey(id)) {
+      avatars = {...avatars}..remove(id);
+      avatarsChanged.value++;
+    }
   }
 
   Future<void> _saveUser() async {
     await _storage.write(key: 'nome', value: userName);
     await _storage.write(key: 'ultimo_nome', value: userName);
     await _storage.write(key: 'admin', value: isAdmin ? '1' : '0');
+    final id = userId;
+    if (id != null) await _storage.write(key: 'id', value: '$id');
   }
 
   Future<void> logout() async {
@@ -123,10 +191,12 @@ class Api {
     // chi era entrato (revisione 6/10/2026). Il nome per riempire la
     // schermata di accesso sta a parte, in "ultimo_nome".
     isAdmin = false;
+    userId = null;
     try {
       await _storage.delete(key: 'token');
       await _storage.delete(key: 'nome');
       await _storage.delete(key: 'admin');
+      await _storage.delete(key: 'id');
     } catch (_) {}
   }
 

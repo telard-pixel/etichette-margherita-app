@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../api.dart';
@@ -21,6 +22,8 @@ class _MoreScreenState extends State<MoreScreen> {
   UpdateInfo? _update;
   Map<String, dynamic>? _health;
   List<Map<String, dynamic>> _users = [];
+  /// Foto profilo in invio: il cerchietto mostra la rotella.
+  bool _photoBusy = false;
 
   @override
   void initState() {
@@ -28,7 +31,72 @@ class _MoreScreenState extends State<MoreScreen> {
     _load();
   }
 
+  /// La propria foto profilo (12/11/2026): scattata o scelta dalla
+  /// galleria, oppure tolta. Il ritaglio quadrato lo fa il server.
+  Future<void> _changePhoto() async {
+    final api = Api.instance;
+    final has = api.avatars.containsKey(api.userId);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text('Foto profilo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          ),
+          MenuRow(
+            icon: Symbols.photo_camera_rounded,
+            title: 'Scatta una foto',
+            onTap: () => Navigator.pop(context, 'scatta'),
+          ),
+          MenuRow(
+            icon: Symbols.photo_library_rounded,
+            title: 'Scegli dalla galleria',
+            onTap: () => Navigator.pop(context, 'galleria'),
+          ),
+          if (has)
+            MenuRow(
+              icon: Symbols.delete_rounded,
+              title: 'Togli la foto',
+              subtitle: 'Tornano le iniziali',
+              danger: true,
+              onTap: () => Navigator.pop(context, 'togli'),
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    setState(() => _photoBusy = true);
+    try {
+      if (choice == 'togli') {
+        await api.removeAvatar();
+        if (mounted) toast(context, 'Foto profilo tolta');
+      } else {
+        final file = await ImagePicker().pickImage(
+          source: choice == 'scatta' ? ImageSource.camera : ImageSource.gallery,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 85,
+          preferredCameraDevice: CameraDevice.front,
+        );
+        if (file != null) {
+          await api.uploadAvatar(await file.readAsBytes());
+          if (mounted) toast(context, 'Foto profilo aggiornata');
+        }
+      }
+    } on ApiError catch (e) {
+      if (mounted && e.status != 401) toast(context, 'Foto non salvata: ${e.message}', error: true);
+    } catch (e) {
+      if (mounted) toast(context, 'Foto non disponibile: $e', error: true);
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
   Future<void> _load() async {
+    Api.instance.loadAvatars();
     try {
       if (!platform.isWebApp) {
         final update = await Updater.check();
@@ -232,7 +300,39 @@ class _MoreScreenState extends State<MoreScreen> {
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Panel(
             child: Row(children: [
-              Initials(api.userName),
+              // La propria foto profilo: si tocca per cambiarla. Stessa
+              // misura delle iniziali di prima (44), il segno della
+              // fotocamera sta sopra l'angolo senza occupare spazio.
+              Semantics(
+                button: true,
+                label: 'Cambia la foto profilo',
+                child: GestureDetector(
+                  onTap: _photoBusy ? null : _changePhoto,
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Avatar(api.userName, userId: api.userId),
+                    Positioned(
+                      right: -3,
+                      bottom: -3,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: C.navy,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: C.surface, width: 2),
+                        ),
+                        child: _photoBusy
+                            ? const SizedBox(
+                                width: 10,
+                                height: 10,
+                                child: CircularProgressIndicator(strokeWidth: 1.6, color: Colors.white))
+                            : const Icon(Symbols.photo_camera_rounded, size: 11, color: Colors.white),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

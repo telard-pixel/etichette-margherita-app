@@ -58,6 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // Dopo Esci o un accesso scaduto la scheda visibile e' di nuovo l'Archivio: senza, i suoi
     // aggiornamenti automatici (schede in lettura) non ripartivano.
     currentTab.value = 0;
+    // Le foto profilo da mostrare accanto ai nomi (12/11/2026).
+    Api.instance.loadAvatars();
     // Un'occhiata agli aggiornamenti a ogni avvio e quando l'app torna in
     // primo piano: in cucina resta aperta per giorni senza mai ripartire.
     WidgetsBinding.instance.addPostFrameCallback((_) => Updater.offerIfNew(context));
@@ -68,7 +70,10 @@ class _HomeScreenState extends State<HomeScreen> {
         // nascosta per piu' di 30 secondi (revisione 6/10/2026).
         final away = _hiddenAt == null ? null : DateTime.now().difference(_hiddenAt!);
         _hiddenAt = null;
-        if (away == null || away > const Duration(seconds: 30)) archiveChanged.value++;
+        if (away == null || away > const Duration(seconds: 30)) {
+          archiveChanged.value++;
+          Api.instance.loadAvatars();
+        }
         _startWatching();
         if (mounted) Updater.offerIfNew(context, onResume: true);
       },
