@@ -25,6 +25,9 @@ class _PrintScreenState extends State<PrintScreen> {
   Map<String, dynamic>? _job;
   Timer? _poll;
   ({bool? ok, String text})? _printer;
+  /// Lo stato della stampante si richiede da solo finche' la pagina e'
+  /// aperta (13/11/2026: accesa dopo aver aperto la pagina, restava rossa).
+  Timer? _printerPoll;
 
   int get _lotId => widget.lot['id'] as int;
 
@@ -38,6 +41,7 @@ class _PrintScreenState extends State<PrintScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    _printerPoll?.cancel();
     super.dispose();
   }
 
@@ -50,13 +54,23 @@ class _PrintScreenState extends State<PrintScreen> {
     }
   }
 
+  /// Ogni quanto si richiede lo stato: spesso finche' non e' verde (chi
+  /// accende la stampante vuole vederlo subito), di rado quando lo e'.
+  static const _printerRecheckDown = Duration(seconds: 3);
+  static const _printerRecheckUp = Duration(seconds: 20);
+
   Future<void> _checkPrinter() async {
+    _printerPoll?.cancel();
     try {
       final body = await Api.instance.get('/salute');
       if (mounted) setState(() => _printer = printerState(body));
     } on ApiError {
       // non decisivo: lo dira' la stampa
+    } catch (_) {
+      // risposta di forma inattesa: si riprova al giro dopo
     }
+    if (!mounted) return;
+    _printerPoll = Timer(_printer?.ok == true ? _printerRecheckUp : _printerRecheckDown, _checkPrinter);
   }
 
   bool get _waiting => _job != null && (_job!['stato'] == 'in_attesa' || _job!['stato'] == 'in_stampa');
@@ -144,6 +158,7 @@ class _PrintScreenState extends State<PrintScreen> {
         toast(context, 'Stampa annullata');
       case 'errore':
         toast(context, 'Stampa non riuscita: ${job['messaggio']}', error: true);
+        _checkPrinter(); // lo stato della stampante subito, non al giro dopo
     }
   }
 
