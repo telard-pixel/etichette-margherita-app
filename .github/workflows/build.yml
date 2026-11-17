@@ -145,6 +145,7 @@ jobs:
       # release gia' creata.
       # 31/10/2026: prima il web e poi l'APK, in due passi. Se si ferma a meta' i telefoni non
       # si aggiornano a una versione che il web non ha ancora.
+      # 17/11/2026: il server e su roberto-vm e la VPS si spegne: i caricamenti passano dal tunnel zrok.
       - name: Carica sul server (web)
         if: github.ref == 'refs/heads/main'
         env:
@@ -154,7 +155,7 @@ jobs:
             -H "X-Upload-Token: $UPLOAD_TOKEN" \
             -F "build=$BUILD" -F "versione=$VERSION" \
             -F "archivio=@EtichetteMargherita-web-$VERSION.tgz" \
-            https://etichette-margherita.duckdns.org/app/api/v1/admin/web
+            https://etichettemargherita.shares.zrok.io/app/api/v1/admin/web
 
       - name: Carica sul server (APK)
         if: github.ref == 'refs/heads/main'
@@ -165,7 +166,7 @@ jobs:
             -H "X-Upload-Token: $UPLOAD_TOKEN" \
             -F "build=$BUILD" -F "versione=$VERSION" \
             -F "apk=@EtichetteMargherita-$VERSION.apk" \
-            https://etichette-margherita.duckdns.org/app/api/v1/admin/apk
+            https://etichettemargherita.shares.zrok.io/app/api/v1/admin/apk
 
       - name: Pubblica release
         if: github.ref == 'refs/heads/main'
