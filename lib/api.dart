@@ -9,8 +9,13 @@ import 'package:http/http.dart' as http;
 import 'label_hints.dart';
 import 'platform/platform.dart' as platform;
 
-const String kServer = 'https://etichette-margherita.duckdns.org';
-const String kApi = '$kServer/app/api/v1';
+/// Il server (17/11/2026: tunnel zrok al posto del nome DuckDNS, che dopo il
+/// trasloco sulla VM resta solo nella tailnet). La versione web parla sempre
+/// con il sito da cui e' stata aperta: un altro indirizzo sarebbe un'altra
+/// origine (CORS) e zrok ai browser risponde con la sua pagina di avviso.
+const String kServerApp = 'https://etichettemargherita.shares.zrok.io';
+final String kServer = kIsWeb ? Uri.base.origin : kServerApp;
+final String kApi = '$kServer/app/api/v1';
 
 class ApiError implements Exception {
   ApiError(this.status, this.message, [this.body]);
