@@ -68,7 +68,19 @@ DIAGNOSTICA = """
     });
     // Con la rete del telefono la prima apertura puo' metterci mezzo minuto:
     // l'avviso compare solo se dopo 90 secondi non c'e' ancora niente.
-    setTimeout(function () { if (!drawn) { send('nessun-disegno-dopo-90s'); show(); } }, 90000);
+    // Contano solo i secondi con la pagina davanti (19/11/2026): l'iPhone
+    // ferma la pagina a schermo bloccato o in un'altra app, e un setTimeout
+    // unico scattava al ritorno (dopo 5 minuti e mezzo) con l'avviso di errore
+    // proprio mentre l'app stava per partire. Un salto lungo tra due giri vuol
+    // dire pagina ferma: vale al massimo 2 secondi.
+    var visibleMs = 0, last = Date.now();
+    var watch = setInterval(function () {
+      var now = Date.now();
+      if (document.visibilityState === 'visible') visibleMs += Math.min(now - last, 2000);
+      last = now;
+      if (drawn) { clearInterval(watch); return; }
+      if (visibleMs >= 90000) { clearInterval(watch); send('nessun-disegno-dopo-90s'); show(); }
+    }, 1000);
   })();
   </script>
 """
