@@ -55,7 +55,16 @@ class _AboutScreenState extends State<AboutScreen> {
                 subtitle: _version.isEmpty ? 'Versione…' : 'Versione $_version${platform.isWebApp ? ' · web' : ''}',
               ),
               divider,
-              MenuRow(icon: Symbols.dns_rounded, title: 'Server', subtitle: Uri.parse(kServer).host),
+              MenuRow(
+                icon: Symbols.dns_rounded,
+                title: 'Server',
+                // Con il doppio ponte (19/11/2026) si vede quale si sta usando.
+                subtitle: platform.isWebApp
+                    ? Uri.parse(kServer).host
+                    : kRoutes.onFallback
+                        ? 'zrok (riserva) · ${Uri.parse(kServer).host}'
+                        : 'Tailscale Funnel · ${Uri.parse(kServer).host}',
+              ),
             ]),
           ),
           const SizedBox(height: 12),

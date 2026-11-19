@@ -3,6 +3,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
 import 'package:web/web.dart' as web;
 
 import 'pending.dart';
@@ -43,6 +44,9 @@ Future<String> deviceName() async {
 
 /// Nel browser gli errori di rete arrivano gia' come ClientException.
 String? networkErrorMessage(Object error) => null;
+
+/// Il client HTTP: nel browser quello del browser (la connessione la apre lui).
+http.Client newHttpClient() => http.Client();
 
 /// Un file scaricato (esportazione): lo scarica il browser, come un
 /// download qualsiasi.

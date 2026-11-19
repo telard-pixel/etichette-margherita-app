@@ -8,21 +8,27 @@ import 'package:http/http.dart' as http;
 
 import 'label_hints.dart';
 import 'platform/platform.dart' as platform;
+import 'server_route.dart';
 
-/// Il server (17/11/2026: tunnel zrok al posto del nome DuckDNS, che dopo il
-/// trasloco sulla VM resta solo nella tailnet). La versione web parla sempre
-/// con il sito da cui e' stata aperta: un altro indirizzo sarebbe un'altra
-/// origine (CORS) e zrok ai browser risponde con la sua pagina di avviso.
-const String kServerApp = 'https://etichettemargherita.shares.zrok.io';
-final String kServer = kIsWeb ? Uri.base.origin : kServerApp;
-final String kApi = '$kServer/app/api/v1';
+/// I ponti verso il server (19/11/2026, vedi server_route.dart): sul telefono
+/// Funnel e poi zrok; la versione web parla sempre con il sito da cui e'
+/// stata aperta (un altro indirizzo sarebbe un'altra origine, CORS, e zrok ai
+/// browser risponde con la sua pagina di avviso).
+final ServerRoutes kRoutes = ServerRoutes(kIsWeb ? [Uri.base.origin] : const [kServerFunnel, kServerZrok]);
+
+/// Il server in uso adesso (per i link da aprire e la schermata "Info").
+String get kServer => kRoutes.current;
+String get kApi => '$kServer/app/api/v1';
 
 class ApiError implements Exception {
-  ApiError(this.status, this.message, [this.body]);
+  ApiError(this.status, this.message, [this.body, this.bridge = false]);
   final int status;
   final String message;
   /// La risposta del server, se c'era (es. "serve_conferma" dell'anti-flood).
   final Map<String, dynamic>? body;
+  /// La risposta non veniva dal server ma dal ponte (zrok o Funnel): la
+  /// richiesta non e' arrivata, si puo' provare l'altro ponte.
+  final bool bridge;
   @override
   String toString() => message;
 }
@@ -52,7 +58,9 @@ class Api {
   }
 
   final _storage = const FlutterSecureStorage();
-  final http.Client _client = http.Client();
+  /// Sul telefono con un tempo massimo per aprire la connessione: un ponte
+  /// spento si scopre in pochi secondi e si passa all'altro.
+  final http.Client _client = platform.newHttpClient();
 
   String? token;
   String userName = '';
@@ -73,8 +81,10 @@ class Api {
 
   Map<String, String> get authHeaders => {if (token != null) 'Authorization': 'Bearer $token'};
 
-  Uri uri(String path, [Map<String, String>? query]) =>
-      Uri.parse('$kApi$path').replace(queryParameters: (query == null || query.isEmpty) ? null : query);
+  Uri uri(String path, [Map<String, String>? query]) => _uriOn(kRoutes.current, path, query);
+
+  static Uri _uriOn(String base, String path, [Map<String, String>? query]) =>
+      Uri.parse('$base/app/api/v1$path').replace(queryParameters: (query == null || query.isEmpty) ? null : query);
 
   /// Rientra con l'accesso salvato. Senza rete si fida di quello salvato:
   /// la prima richiesta vera dira' se e' ancora valido.
@@ -148,9 +158,10 @@ class Api {
   }
 
   /// La propria foto profilo: il server la ritaglia quadrata e la riduce.
-  Future<void> uploadAvatar(Uint8List photo) => _guard(() async {
+  /// Rifarla sull'altro ponte non fa danni: la foto nuova sostituisce la stessa.
+  Future<void> uploadAvatar(Uint8List photo) => _routed(true, (base) async {
         final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
-        final request = http.MultipartRequest('POST', uri('/me/foto'))
+        final request = http.MultipartRequest('POST', _uriOn(base, '/me/foto'))
           ..headers.addAll(authHeaders)
           ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
         final streamed = await _client.send(request).timeout(const Duration(minutes: 1));
@@ -229,6 +240,11 @@ class Api {
     try {
       body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {
+      // Una pagina del ponte (zrok o Funnel) al posto del server: la richiesta
+      // non e' arrivata, chi chiama puo' provare l'altro ponte.
+      if (isBridgeResponse(r.statusCode, r.headers['content-type'], isJson: false)) {
+        throw ApiError(0, 'Server non raggiungibile: riprova tra poco', null, true);
+      }
       body = {'ok': false, 'errore': 'Risposta non valida dal server (${r.statusCode})'};
     }
     // Solo se il token rifiutato e' quello in uso: una richiesta lunga partita
@@ -260,32 +276,52 @@ class Api {
     }
   }
 
+  /// La richiesta non e' arrivata al server (o non se ne sa niente): rete,
+  /// tempo scaduto, connessione sicura fallita, pagina del ponte.
+  static bool _unreachable(Object e) =>
+      e is TimeoutException ||
+      e is http.ClientException ||
+      (e is ApiError && e.bridge) ||
+      platform.networkErrorMessage(e) != null;
+
+  /// Una richiesta sul ponte in uso (19/11/2026). Se non arriva al server il
+  /// ponte e' segnato come caduto: le richieste dopo vanno sull'altro. Con
+  /// [retry] la stessa richiesta si rifa' subito, una volta sola, sull'altro
+  /// ponte; solo per quelle che ripetute non fanno danni: le letture, e le
+  /// richieste con la "chiave" (il server riconosce la ripetizione e ridà la
+  /// stessa risposta, niente scheda, lotto o stampa doppi). Le altre (modifiche,
+  /// cancellazioni, accesso) danno l'errore di sempre e l'utente riprova, gia'
+  /// sul ponte nuovo: la prima poteva essere arrivata.
+  Future<T> _routed<T>(bool retry, Future<T> Function(String base) call) =>
+      _guard(() => routedCall(kRoutes, retry, _unreachable, call));
+
   static const _timeout = Duration(seconds: 30);
 
-  Future<Map<String, dynamic>> get(String path, [Map<String, String>? query]) => _guard(
-      () async => _decode(await _client.get(uri(path, query), headers: authHeaders).timeout(_timeout)));
+  Future<Map<String, dynamic>> get(String path, [Map<String, String>? query]) => _routed(true,
+      (base) async => _decode(await _client.get(_uriOn(base, path, query), headers: authHeaders).timeout(_timeout)));
 
-  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body) => _guard(() async => _decode(
-      await _client
-          .post(uri(path), headers: {...authHeaders, 'Content-Type': 'application/json'}, body: jsonEncode(body))
+  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body) =>
+      _routed(body.containsKey('chiave'), (base) async => _decode(await _client
+          .post(_uriOn(base, path), headers: {...authHeaders, 'Content-Type': 'application/json'}, body: jsonEncode(body))
           .timeout(_timeout)));
 
-  Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> body) => _guard(() async => _decode(
+  Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> body) => _routed(false, (base) async => _decode(
       await _client
-          .patch(uri(path), headers: {...authHeaders, 'Content-Type': 'application/json'}, body: jsonEncode(body))
+          .patch(_uriOn(base, path), headers: {...authHeaders, 'Content-Type': 'application/json'}, body: jsonEncode(body))
           .timeout(_timeout)));
 
-  Future<Map<String, dynamic>> delete(String path) => _guard(
-      () async => _decode(await _client.delete(uri(path), headers: authHeaders).timeout(_timeout)));
+  Future<Map<String, dynamic>> delete(String path) => _routed(false,
+      (base) async => _decode(await _client.delete(_uriOn(base, path), headers: authHeaders).timeout(_timeout)));
 
   /// Una foto al server: nuova scheda (`/foto`) o foto in piu' di una
   /// scheda (`/schede/ID/foto`). I byte della foto, non un file: cosi' vale
-  /// anche nel browser.
+  /// anche nel browser. Con la [key] si rifa' sull'altro ponte: il server
+  /// riconosce lo stesso invio e la scheda non raddoppia.
   Future<Map<String, dynamic>> uploadPhoto(String path, Uint8List photo, {String caption = '', String? key}) =>
-      _guard(() async {
+      _routed(key != null, (base) async {
         // Il nome segue il contenuto vero: un PNG non si chiama "foto.jpg".
         final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
-        final request = http.MultipartRequest('POST', uri(path))
+        final request = http.MultipartRequest('POST', _uriOn(base, path))
           ..headers.addAll(authHeaders)
           ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
         if (caption.trim().isNotEmpty) request.fields['didascalia'] = caption.trim();
@@ -300,10 +336,11 @@ class Api {
   /// Scanner della webapp (25/10/2026): lotto e scadenza nella foto appena
   /// scattata, cercati nelle righe che legge il server. Il server non la
   /// tiene e non crea schede. Dal 28/10/2026 legge anche i codici a barre
-  /// GS1: quelli sono esatti e vincono sul testo.
-  Future<LabelHints> checkPhoto(Uint8List photo) => _guard(() async {
+  /// GS1: quelli sono esatti e vincono sul testo. Solo una lettura: si rifa'
+  /// sull'altro ponte.
+  Future<LabelHints> checkPhoto(Uint8List photo) => _routed(true, (base) async {
         final png = photo.length > 4 && photo[0] == 0x89 && photo[1] == 0x50;
-        final request = http.MultipartRequest('POST', uri('/controllo-foto'))
+        final request = http.MultipartRequest('POST', _uriOn(base, '/controllo-foto'))
           ..headers.addAll(authHeaders)
           ..files.add(http.MultipartFile.fromBytes('foto', photo, filename: png ? 'foto.png' : 'foto.jpg'));
         final streamed = await _client.send(request).timeout(const Duration(seconds: 40));
@@ -311,16 +348,16 @@ class Api {
       });
 
   /// Immagini e file (etichetta PNG, esportazioni): i byte, o un errore.
-  Future<List<int>> bytes(String path, [Map<String, String>? query]) => _guard(() async {
-        final r = await _client.get(uri(path, query), headers: authHeaders).timeout(const Duration(minutes: 2));
+  Future<List<int>> bytes(String path, [Map<String, String>? query]) => _routed(true, (base) async {
+        final r = await _client.get(_uriOn(base, path, query), headers: authHeaders).timeout(const Duration(minutes: 2));
         if (r.statusCode >= 400) await _decode(r);
         return r.bodyBytes;
       });
 
   /// Scarica tutto in memoria, con l'avanzamento (0..1, o null se non si
   /// sa): esportazioni e aggiornamento.
-  Future<Uint8List> download(String path, {void Function(double?)? onProgress}) => _guard(() async {
-        final request = http.Request('GET', uri(path))..headers.addAll(authHeaders);
+  Future<Uint8List> download(String path, {void Function(double?)? onProgress}) => _routed(true, (base) async {
+        final request = http.Request('GET', _uriOn(base, path))..headers.addAll(authHeaders);
         final response = await _client.send(request).timeout(const Duration(minutes: 1));
         if (response.statusCode >= 400) {
           await _decode(await http.Response.fromStream(response));

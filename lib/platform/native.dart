@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -24,6 +26,11 @@ Future<String> deviceName() async {
     return 'Android';
   }
 }
+
+/// Il client HTTP dell'app (19/11/2026, doppio ponte): con un tempo massimo
+/// per aprire la connessione. Senza, un ponte spento teneva la richiesta
+/// appesa fino ai 30 secondi della richiesta intera prima di provare l'altro.
+http.Client newHttpClient() => IOClient(HttpClient()..connectionTimeout = const Duration(seconds: 10));
 
 /// Su Android il tasto indietro lo gestisce gia' l'app: niente da fare.
 void onBrowserBack(void Function() back) {}
