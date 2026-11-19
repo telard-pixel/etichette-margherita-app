@@ -81,6 +81,7 @@ Future<String?> _askReason(BuildContext context) async {
         ]),
         const SizedBox(height: 12),
         TextField(
+          magnifierConfiguration: kTextMagnifier,
           controller: other,
           maxLength: 200,
           decoration: const InputDecoration(labelText: 'Altro motivo'),
@@ -196,6 +197,7 @@ class _RecallScreenState extends State<RecallScreen> {
         Row(children: [
           Expanded(
             child: TextField(
+              magnifierConfiguration: kTextMagnifier,
               controller: _code,
               textCapitalization: TextCapitalization.characters,
               textInputAction: TextInputAction.search,

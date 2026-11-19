@@ -228,6 +228,7 @@ class _ManualLabelScreenState extends State<ManualLabelScreen> {
           const SectionLabel('Prodotto'),
           const SizedBox(height: 6),
           TextField(
+            magnifierConfiguration: kTextMagnifier,
             controller: _product,
             textCapitalization: TextCapitalization.sentences,
             maxLength: 120,

@@ -81,6 +81,7 @@ class _EditableFieldState extends State<EditableField> {
         Row(children: [
           Expanded(
             child: TextField(
+              magnifierConfiguration: kTextMagnifier,
               controller: _controller,
               autofocus: true,
               enabled: !_saving,
@@ -210,6 +211,7 @@ class _AllergenSheetState extends State<_AllergenSheet> {
             ]),
             const SizedBox(height: 12),
             TextField(
+              magnifierConfiguration: kTextMagnifier,
               controller: _other,
               decoration: const InputDecoration(hintText: 'Altro (separati da virgola)'),
               onChanged: (_) => setState(() {}),

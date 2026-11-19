@@ -181,6 +181,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(
+              magnifierConfiguration: kTextMagnifier,
               controller: _name,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(labelText: 'Nome e cognome'),
@@ -189,6 +190,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
             // Nascosto mentre si scrive (8/10/2026): in cucina c'e' sempre
             // qualcuno vicino.
             TextField(
+              magnifierConfiguration: kTextMagnifier,
               controller: _pin,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -278,6 +280,7 @@ class _UserScreenState extends State<UserScreen> {
       builder: (context) => AlertDialog(
         title: Text('Nuovo PIN per ${_u['nome']}'),
         content: TextField(
+          magnifierConfiguration: kTextMagnifier,
           controller: pin,
           autofocus: true,
           keyboardType: TextInputType.number,

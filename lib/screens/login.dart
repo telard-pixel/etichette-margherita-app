@@ -158,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SectionLabel('Nome'),
                 const SizedBox(height: 6),
                 TextField(
+                  magnifierConfiguration: kTextMagnifier,
                   controller: _name,
                   focusNode: _nameFocus,
                   textCapitalization: TextCapitalization.words,

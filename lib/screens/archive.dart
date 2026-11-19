@@ -401,6 +401,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
           child: TextField(
+            magnifierConfiguration: kTextMagnifier,
             controller: _search,
             onChanged: _onSearch,
             textInputAction: TextInputAction.search,

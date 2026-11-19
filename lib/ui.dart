@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -14,6 +15,13 @@ import 'platform/platform.dart' show readPhotoCache, writePhotoCache, forgetPhot
 /// costanti: si leggono a ogni disegno.
 /// Larghezza massima del contenuto su schermi grandi (PC, tablet).
 const double kMaxContentWidth = 760;
+
+/// La lente sul cursore nei campi di testo (19/11/2026, foto della #785): nel
+/// browser dell'iPhone Flutter la disegna male, un ovale che copia un pezzo
+/// del campo piu' in alto, non ingrandito, e resta sopra la scheda. Nella
+/// versione web si spegne; sul telefono Android resta (li' funziona).
+/// Da mettere in ogni TextField: `magnifierConfiguration: kTextMagnifier`.
+final TextMagnifierConfiguration? kTextMagnifier = kIsWeb ? TextMagnifierConfiguration.disabled : null;
 
 /// Lavoro dell'utente non ancora finito (foto scattate non inviate, invio o
 /// stampa in corso): l'aggiornamento automatico non si propone finche' e'

@@ -441,6 +441,7 @@ class _PrinterAddressDialogState extends State<_PrinterAddressDialog> {
               style: TextStyle(fontSize: 13, color: C.muted)),
           const SizedBox(height: 12),
           TextField(
+            magnifierConfiguration: kTextMagnifier,
             controller: _name,
             textCapitalization: TextCapitalization.sentences,
             maxLength: 40,
@@ -450,6 +451,7 @@ class _PrinterAddressDialogState extends State<_PrinterAddressDialog> {
           ),
           const SizedBox(height: 4),
           TextField(
+            magnifierConfiguration: kTextMagnifier,
             controller: _host,
             keyboardType: TextInputType.url,
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9.\-]'))],
@@ -459,6 +461,7 @@ class _PrinterAddressDialogState extends State<_PrinterAddressDialog> {
           ),
           const SizedBox(height: 10),
           TextField(
+            magnifierConfiguration: kTextMagnifier,
             controller: _port,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],

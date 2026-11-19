@@ -125,6 +125,7 @@ class _IngredientSheetState extends State<_IngredientSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 TextField(
+                  magnifierConfiguration: kTextMagnifier,
                   controller: _name,
                   autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
@@ -133,6 +134,7 @@ class _IngredientSheetState extends State<_IngredientSheet> {
                 ),
                 const SizedBox(height: 10),
                 TextField(
+                  magnifierConfiguration: kTextMagnifier,
                   controller: _lot,
                   maxLength: 40,
                   textCapitalization: TextCapitalization.characters,
@@ -147,6 +149,7 @@ class _IngredientSheetState extends State<_IngredientSheet> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
+                magnifierConfiguration: kTextMagnifier,
                 controller: _search,
                 onChanged: _searchChanged,
                 decoration: const InputDecoration(prefixIcon: Icon(Symbols.search_rounded), hintText: 'Cerca prodotto o lotto'),

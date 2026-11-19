@@ -383,6 +383,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
             const SectionLabel('Nome del prodotto'),
             const SizedBox(height: 6),
             TextField(
+              magnifierConfiguration: kTextMagnifier,
               controller: _caption,
               enabled: !_sending,
               maxLength: 200,
