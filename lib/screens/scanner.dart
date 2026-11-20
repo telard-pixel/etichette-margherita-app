@@ -315,8 +315,14 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
             child: ClipRect(
               child: FittedBox(
                 fit: BoxFit.cover,
-                // L'anteprima arriva in orizzontale: in verticale si scambiano i lati.
-                child: SizedBox(width: preview.height, height: preview.width, child: CameraPreview(camera)),
+                // L'anteprima arriva in orizzontale: in verticale si scambiano i
+                // lati. Con il telefono in orizzontale no (20/11/2026): prima
+                // restava un riquadro verticale allargato fino a riempire lo
+                // schermo, cioe' uno zoom forte e una cornice che non
+                // corrispondeva alla foto.
+                child: box.maxWidth > box.maxHeight
+                    ? SizedBox(width: preview.width, height: preview.height, child: CameraPreview(camera))
+                    : SizedBox(width: preview.height, height: preview.width, child: CameraPreview(camera)),
               ),
             ),
           );

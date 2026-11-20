@@ -49,5 +49,28 @@ void main() {
       // Anteprima in orizzontale: non e' il caso dello scanner.
       expect(visibleInPreview(photoWidth: 3000, photoHeight: 4000, streamAspect: 16 / 9, viewAspect: 0.46), isNull);
     });
+
+    test('telefono in orizzontale: lo stesso ritaglio girato di un quarto', () {
+      // Foto 4000x3000 scattata in orizzontale, schermo 19,5:9: si tiene
+      // tutta la larghezza e si taglia sopra e sotto, come si vedeva.
+      final rect = visibleInPreview(photoWidth: 4000, photoHeight: 3000, streamAspect: 9 / 16, viewAspect: 19.5 / 9);
+      final upright = visibleInPreview(photoWidth: 3000, photoHeight: 4000, streamAspect: 9 / 16, viewAspect: 9 / 19.5);
+      expect(rect, isNotNull);
+      expect(rect, CropRect(upright!.top, upright.left, upright.height, upright.width));
+      expect(rect!.width, 4000);
+      expect(rect.left, 0);
+      expect(rect.top, (3000 - 1846) ~/ 2);
+      expect(rect.top + rect.height, lessThanOrEqualTo(3000));
+    });
+
+    test('foto e schermo girati diversamente: la foto resta intera', () {
+      // Foto in orizzontale con lo schermo in verticale, o il contrario:
+      // non si sa cosa si vedeva, meglio non tagliare niente.
+      expect(visibleInPreview(photoWidth: 4000, photoHeight: 3000, streamAspect: 9 / 16, viewAspect: 9 / 19.5), isNull);
+      expect(visibleInPreview(photoWidth: 3000, photoHeight: 4000, streamAspect: 9 / 16, viewAspect: 19.5 / 9), isNull);
+      expect(visibleInPreview(photoWidth: 4000, photoHeight: 3000, streamAspect: 9 / 16, viewAspect: 1), isNull);
+      // Foto quadrata: niente da decidere.
+      expect(visibleInPreview(photoWidth: 3000, photoHeight: 3000, streamAspect: 9 / 16, viewAspect: 2), isNull);
+    });
   });
 }

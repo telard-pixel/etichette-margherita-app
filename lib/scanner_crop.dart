@@ -36,18 +36,35 @@ const double _minimumGain = 0.03;
 /// dello spazio dove viene disegnata. Foto e anteprima hanno lo stesso centro
 /// e lo stesso lato lungo: cambia solo quanto si vede ai lati.
 ///
+/// Con il telefono in orizzontale (20/11/2026, segnalazione della #803) foto
+/// e schermo sono girati di un quarto: e' lo stesso conto con i lati
+/// scambiati. [streamAspect] resta quello verticale (lato corto/lato lungo).
+///
 /// Restituisce `null` quando non c'e' niente da ritagliare o non si puo'
-/// sapere: foto in orizzontale, misure mancanti, differenza minima. In quei
-/// casi la foto resta intera, che e' come funzionava prima.
+/// sapere: foto e schermo girati diversamente, misure mancanti, differenza
+/// minima. In quei casi la foto resta intera, che e' come funzionava prima.
 CropRect? visibleInPreview({
   required int photoWidth,
   required int photoHeight,
   required double streamAspect,
   required double viewAspect,
 }) {
-  if (photoWidth <= 0 || photoHeight <= 0 || photoWidth >= photoHeight) return null;
+  if (photoWidth <= 0 || photoHeight <= 0 || photoWidth == photoHeight) return null;
   if (!(streamAspect > 0) || !(viewAspect > 0) || !streamAspect.isFinite || !viewAspect.isFinite) return null;
   if (streamAspect >= 1) return null;
+  if (photoWidth > photoHeight) {
+    // Foto in orizzontale: vale solo con lo schermo in orizzontale anche lui.
+    if (viewAspect <= 1) return null;
+    final turned = visibleInPreview(
+      photoWidth: photoHeight,
+      photoHeight: photoWidth,
+      streamAspect: streamAspect,
+      viewAspect: 1 / viewAspect,
+    );
+    return turned == null ? null : CropRect(turned.top, turned.left, turned.height, turned.width);
+  }
+  // Foto in verticale con lo schermo in orizzontale: non si sa cosa si vedeva.
+  if (viewAspect > 1) return null;
 
   // L'anteprima, misurata nei pixel della foto: alta quanto lei.
   final streamWidth = photoHeight * streamAspect;
